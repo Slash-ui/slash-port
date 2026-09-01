@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Read-only by default. Any job that needs more asks for it explicitly.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ['22', '24']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      - run: npm run build
+
+      # The macOS and Windows scanners are separate implementations that unit
+      # tests cannot reach: they shell out to lsof, ps, netstat, and tasklist.
+      # This is the only thing that proves they run at all on those platforms.
+      - name: Smoke test the built binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node dist/cli.js --help
+          node dist/cli.js --version
+          node dist/cli.js --plain
+          node dist/cli.js --plain --udp
+          node dist/cli.js --json > ports.json
+          node -e "const p = JSON.parse(require('fs').readFileSync('ports.json','utf8')); if (!Array.isArray(p)) { throw new Error('--json did not produce an array'); } console.log(p.length + ' listening sockets found');"
+
+      - name: A pipe must never receive control codes
+        shell: bash
+        run: |
+          set -euo pipefail
+          node dist/cli.js --plain | cat > plain.txt
+          if LC_ALL=C grep -q $'\033' plain.txt; then
+            echo 'Piped output contained an escape sequence.' >&2
+            exit 1
+          fi
+
+      - name: Refuse to kill without being told what and confirmed
+        shell: bash
+        run: |
+          set -euo pipefail
+          node dist/cli.js --kill && { echo 'A bare --kill was accepted.' >&2; exit 1; } || test $? -eq 2
+          node dist/cli.js --kill --port 3000 && { echo '--kill without --yes was accepted.' >&2; exit 1; } || test $? -eq 2
+          node dist/cli.js --nonsense && { echo 'An unknown flag was accepted.' >&2; exit 1; } || test $? -eq 2
+
+  commits:
+    name: commit messages
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The same hook contributors run locally, so the rules cannot drift
+      # between the two. This is not a style check: the release pipeline reads
+      # these types to choose the next version number.
+      - name: Every commit is a Conventional Commit
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -uo pipefail
+          failed=0
+          for sha in $(git rev-list --no-merges "$BASE..$HEAD"); do
+            git log -1 --format=%B "$sha" > message.txt
+            printf '\n%s  %s\n' "$(git log -1 --format=%h "$sha")" "$(git log -1 --format=%s "$sha")"
+            .githooks/commit-msg message.txt || failed=1
+          done
+          exit "$failed"
+
+      # A squash merge uses the pull request title as the commit subject, so
+      # the title has to satisfy the same rules or the squashed commit will not.
+      - name: The pull request title is a Conventional Commit
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          printf '%s\n' "$TITLE" > title.txt
+          .githooks/commit-msg title.txt
+
+  package:
+    name: tarball contents
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node .github/scripts/check-pack.mjs
+
+  secrets:
+    name: secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The whole history, not the diff. A contributor who never ran
+          # `git config core.hooksPath .githooks` bypassed every local check,
+          # and the point of this job is to catch exactly that.
+          fetch-depth: 0
+
+      # Pin to a commit SHA once the SHA of a reviewed release is known.
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

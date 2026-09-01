@@ -1,0 +1,66 @@
+#!/bin/sh
+#
+# Refuse commits that would put a credential, or local tooling configuration,
+# into a public history. Checks run cheapest first, so the common case — a
+# commit with none of these — costs almost nothing.
+#
+# Enable with:  git config core.hooksPath .githooks
+
+set -eu
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$staged" ] && exit 0
+
+fail() {
+	printf '\n  pre-commit: %s\n\n' "$1" >&2
+	printf '  Nothing was committed. Unstage the file, or fix the content, and try again.\n' >&2
+	printf '  To bypass deliberately: git commit --no-verify\n\n' >&2
+	exit 1
+}
+
+# 1. Filenames that are never safe to commit.
+blocked=$(printf '%s\n' "$staged" | grep -E \
+	'(^|/)\.env($|\.)|(^|/)\.npmrc$|(^|/)\.netrc$|(^|/)\.pgpass$|(^|/)id_(rsa|ed25519|ecdsa)|(^|/)credentials\.json$|(^|/)service-account.*\.json$|\.(pem|key|p12|pfx|jks|keystore)$' \
+	| grep -v '\.env\.example$' || true)
+if [ -n "$blocked" ]; then
+	fail "these look like credential files:
+$(printf '%s\n' "$blocked" | sed 's/^/    /')"
+fi
+
+# 2. Local tooling configuration, which belongs to a person or to the private
+#    tooling repository rather than to this project's history.
+tooling=$(printf '%s\n' "$staged" | grep -E \
+	'(^|/)\.claude/|(^|/)CLAUDE\.md$|(^|/)\.cursor(rules)?(/|$)|(^|/)\.aider|(^|/)\.windsurfrules$|(^|/)\.continue/|(^|/)copilot-instructions\.md$' \
+	|| true)
+if [ -n "$tooling" ]; then
+	fail "these are local tooling files, not project files:
+$(printf '%s\n' "$tooling" | sed 's/^/    /')"
+fi
+
+# 3. Secret-shaped strings in the added lines only, so an existing false
+#    positive elsewhere in a file does not block every later commit.
+added=$(git diff --cached --unified=0 --diff-filter=ACMR | grep '^+' | grep -v '^+++' || true)
+if [ -n "$added" ]; then
+	# These patterns do not match themselves: the literal text below is the
+	# regex, and a bracket is not a member of any of its character classes.
+	if printf '%s' "$added" | grep -qE "gh[pousr]_[A-Za-z0-9]{16,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|AIza[0-9A-Za-z_-]{35}"; then
+		fail 'a staged line looks like a credential (API token, access key, or private key).'
+	fi
+fi
+
+# 4. The thorough check, when it is installed. Everything above exists so that
+#    the hook is still useful on a machine without it.
+if command -v gitleaks >/dev/null 2>&1; then
+	# gitleaks 8.19 renamed `protect` to `git --staged`. Support both, so the
+	# hook does not silently stop running after someone upgrades.
+	if gitleaks git --help >/dev/null 2>&1; then
+		set -- git --staged .
+	else
+		set -- protect --staged
+	fi
+
+	gitleaks "$@" --redact --no-banner --log-level warn \
+		|| fail 'gitleaks found a secret in the staged changes.'
+fi
+
+exit 0
