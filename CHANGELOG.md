@@ -4,6 +4,14 @@ Every release is listed here. Entries are generated from the
 [Conventional Commit](https://www.conventionalcommits.org) messages in each
 release, and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.2.0](https://github.com/Slash-ui/slash-port/releases/tag/v0.2.0) — 2026-09-01
+
+### Features
+
+- add support for port patterns and ranges in CLI and documentation ([2777aaa](https://github.com/Slash-ui/slash-port/commit/2777aaa5ce1b5c0a86eb94c54f9bcbaecdb66560))
+
+[Compare with v0.1.0](https://github.com/Slash-ui/slash-port/compare/v0.1.0...v0.2.0)
+
 ## [0.1.0](https://github.com/Slash-ui/slash-port/releases/tag/v0.1.0) — 2026-09-01
 
 ### Features
