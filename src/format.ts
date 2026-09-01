@@ -1,3 +1,4 @@
+import { matchesPort, tryPortSelector } from './ports.js';
 import type { PortEntry } from './types.js';
 
 /** Shown wherever a value is genuinely absent, rather than an empty column. */
@@ -51,6 +52,10 @@ export function searchText(entry: PortEntry): string {
 export function matchesFilter(entry: PortEntry, filter: string): boolean {
   const needle = filter.trim().toLowerCase();
   if (!needle) return true;
+  // `3xxx` and `3000:3005` can mean nothing but ports, so they are matched as
+  // ports. A bare `3000` stays a substring, because it is also half a pid.
+  const selector = tryPortSelector(needle);
+  if (selector) return matchesPort(selector, entry.port);
   return searchText(entry).includes(needle);
 }
 

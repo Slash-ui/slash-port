@@ -48,15 +48,39 @@ Requires Node 22 or newer. Works on Linux, macOS, and Windows.
 ```sh
 slash-port              # the interactive list
 slash-port 3000         # open on port 3000
+slash-port 3xxx         # every port from 3000 to 3999
+slash-port 3000:3005    # every port in that range
 slash-port --plain      # a plain table, for a pipe or a script
 slash-port --json       # the same data as JSON
 slash-port --udp        # include UDP as well as TCP
 ```
 
+### Naming ports
+
+`--port` and the interactive filter take the same three forms:
+
+| Form | Means |
+| --- | --- |
+| `3000` | One port |
+| `3xxx` | Every port from 3000 to 3999. `x` is any digit, in any position: `8x80` is 8080, 8180, and so on to 8980 |
+| `3000:3005` | Every port from 3000 to 3005, both ends included |
+
+A pattern is read as digits, not as a number, so `3xxx` is the four-digit ports
+beginning with 3 and does not include 300. Ports above 65535 do not exist, so a
+pattern that can only match them — `7xxxx` — is a usage error rather than an
+empty list.
+
 To kill something from a script, name it and confirm it:
 
 ```sh
 slash-port --kill --port 3000 --yes
+```
+
+A pattern or a range can match several ports, and the same command matches more
+of them tomorrow than it does today, so killing with one takes `--all` as well:
+
+```sh
+slash-port --kill --port 3000:3005 --yes --all
 ```
 
 There is no flag combination that kills something without naming it first.
@@ -68,7 +92,7 @@ There is no flag combination that kills something without naming it first.
 | `↑` `↓` or `j` `k` | Move |
 | `PgUp` `PgDn` | Page |
 | `g` `G` | First, last |
-| `/` | Filter; `Enter` keeps it, `Esc` clears it |
+| `/` | Filter on anything in the row, or on ports with `3xxx` and `3000:3005`; `Enter` keeps it, `Esc` clears it |
 | `x` or `Enter` | Kill the selected port |
 | `r` | Rescan |
 | `u` | Show UDP as well as TCP |
@@ -81,13 +105,14 @@ cancels. The kill key is deliberately not next to a navigation key.
 
 | Option | Does |
 | --- | --- |
-| `-p`, `--port <number>` | Only this port |
+| `-p`, `--port <ports>` | Only these ports: `3000`, `3xxx`, or `3000:3005` |
 | `-u`, `--udp` | Include UDP sockets |
 | `--json` | Print JSON and exit |
 | `--plain` | Print a plain table and exit |
 | `--kill` | Kill the process on `--port`. Requires `--yes` |
 | `--force` | Escalate to SIGKILL instead of SIGTERM |
 | `-y`, `--yes` | Confirm a kill made from the command line |
+| `--all` | Kill every port a pattern or a range matches. Requires `--kill` |
 | `--grace <ms>` | Wait this long for a graceful exit (default 3000) |
 | `--no-color` | Disable colour. `NO_COLOR` is honoured too |
 | `-h`, `--help` | Show help |
@@ -101,9 +126,10 @@ cancels. The kill key is deliberately not next to a navigation key.
 | `1` | The requested action could not be completed |
 | `2` | Invalid usage |
 
-Asking about one port is a question with a yes-or-no answer, so
-`slash-port --port 3000 --plain` exits `1` when nothing is listening there.
-Listing every port exits `0` even when the list is empty.
+Asking about a port is a question with a yes-or-no answer, so
+`slash-port --port 3000 --plain` exits `1` when nothing is listening there, and
+so does `--port 3xxx` when nothing matches. Listing every port exits `0` even
+when the list is empty.
 
 ## Safety
 
@@ -112,6 +138,9 @@ are fixed rather than configurable:
 
 - **Nothing is killed without a confirmation that names it.** Not in the
   interactive list, and not with flags.
+- **A pattern or a range never kills on its own.** `--kill --port 3xxx --yes`
+  is refused without `--all`, because what a pattern matches depends on what
+  happens to be running when the command is run.
 - **Some processes are refused outright**, before any dialog is offered: the
   init process, `sshd` — killing it locks you out of a remote machine — macOS
   and Windows session processes, `slash-port` itself, and the shell that

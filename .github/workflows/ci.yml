@@ -52,6 +52,10 @@ jobs:
           node dist/cli.js --plain --udp
           node dist/cli.js --json > ports.json
           node -e "const p = JSON.parse(require('fs').readFileSync('ports.json','utf8')); if (!Array.isArray(p)) { throw new Error('--json did not produce an array'); } console.log(p.length + ' listening sockets found');"
+          # A pattern and a range are questions with a yes-or-no answer, so
+          # both exits are correct and only a usage error would be a failure.
+          node dist/cli.js --plain --port 3xxx || test $? -eq 1
+          node dist/cli.js --plain --port 3000:3005 || test $? -eq 1
 
       - name: A pipe must never receive control codes
         shell: bash
@@ -69,6 +73,9 @@ jobs:
           set -euo pipefail
           node dist/cli.js --kill && { echo 'A bare --kill was accepted.' >&2; exit 1; } || test $? -eq 2
           node dist/cli.js --kill --port 3000 && { echo '--kill without --yes was accepted.' >&2; exit 1; } || test $? -eq 2
+          node dist/cli.js --kill --port 3xxx --yes && { echo 'A pattern kill was accepted without --all.' >&2; exit 1; } || test $? -eq 2
+          node dist/cli.js --kill --port 3000:3005 --yes && { echo 'A range kill was accepted without --all.' >&2; exit 1; } || test $? -eq 2
+          node dist/cli.js --port 7xxxx && { echo 'A pattern no port can match was accepted.' >&2; exit 1; } || test $? -eq 2
           node dist/cli.js --nonsense && { echo 'An unknown flag was accepted.' >&2; exit 1; } || test $? -eq 2
 
   commits:

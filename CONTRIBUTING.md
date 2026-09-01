@@ -53,6 +53,7 @@ src/
     shared.ts    address formatting, subprocess helper
   describe.ts    port registry, command signatures, protection rules
   format.ts      plain-text and JSON output
+  ports.ts       port selectors: one port, a 3xxx pattern, a 3000:3005 range
   kill.ts        signal escalation, guardrails, outcome types
   ui/
     App.tsx      list, filter, confirmation dialog
@@ -98,6 +99,7 @@ Every change to parsing, describing, or killing needs a test.
   against spawned child processes.
 - `test/ui.test.tsx` — rendering, empty states, truncation, column widths at 60
   and 200 columns, resize, and the confirmation dialog.
+- `test/ports.test.ts` — port selectors, and what the filter box makes of them.
 
 CI runs all of it on Linux, macOS, and Windows, and additionally smoke tests the
 built binary on each, because the macOS and Windows scanners shell out to tools

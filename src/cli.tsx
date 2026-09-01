@@ -2,8 +2,10 @@
 import { readFileSync } from 'node:fs';
 import { plainTable, toJson } from './format.js';
 import { killEntry } from './kill.js';
+import { describePortSelector, looksLikePort, matchesPort, parsePortSelector } from './ports.js';
 import { scan } from './scan/index.js';
 import { ScanError } from './types.js';
+import type { PortSelector } from './ports.js';
 import type { PortEntry } from './types.js';
 
 /** 0 success · 1 the action could not be completed · 2 invalid usage. */
@@ -12,13 +14,14 @@ const EXIT_FAILED = 1;
 const EXIT_USAGE = 2;
 
 interface Options {
-  port: number | null;
+  port: PortSelector | null;
   udp: boolean;
   json: boolean;
   plain: boolean;
   kill: boolean;
   force: boolean;
   yes: boolean;
+  all: boolean;
   graceMs: number;
   color: boolean;
   help: boolean;
@@ -36,6 +39,7 @@ function parseArgs(argv: readonly string[]): Options {
     kill: false,
     force: false,
     yes: false,
+    all: false,
     graceMs: 3000,
     color: true,
     help: false,
@@ -47,19 +51,23 @@ function parseArgs(argv: readonly string[]): Options {
     return next;
   };
 
+  // A bad port is a usage error like any other, so it exits 2 with the same
+  // shape of message rather than as an unhandled failure.
+  const selector = (raw: string): PortSelector => {
+    try {
+      return parsePortSelector(raw);
+    } catch (error) {
+      throw new UsageError((error as Error).message);
+    }
+  };
+
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index]!;
     switch (argument) {
       case '-p':
-      case '--port': {
-        const raw = value(argument, argv[++index]);
-        const port = Number.parseInt(raw, 10);
-        if (!Number.isInteger(port) || port < 1 || port > 65535) {
-          throw new UsageError(`${raw} is not a port number between 1 and 65535.`);
-        }
-        options.port = port;
+      case '--port':
+        options.port = selector(value(argument, argv[++index]));
         break;
-      }
       case '-u':
       case '--udp':
         options.udp = true;
@@ -79,6 +87,9 @@ function parseArgs(argv: readonly string[]): Options {
       case '-y':
       case '--yes':
         options.yes = true;
+        break;
+      case '--all':
+        options.all = true;
         break;
       case '--grace': {
         const raw = value(argument, argv[++index]);
@@ -100,11 +111,9 @@ function parseArgs(argv: readonly string[]): Options {
         options.version = true;
         break;
       default:
-        if (/^\d+$/.test(argument) && options.port === null) {
+        if (looksLikePort(argument) && options.port === null) {
           // `slash-port 3000` is what everyone tries first.
-          const port = Number.parseInt(argument, 10);
-          if (port < 1 || port > 65535) throw new UsageError(`${argument} is not a port number.`);
-          options.port = port;
+          options.port = selector(argument);
           break;
         }
         throw new UsageError(`Unknown option: ${argument}`);
@@ -118,8 +127,16 @@ function parseArgs(argv: readonly string[]): Options {
   if (options.kill) {
     if (options.port === null) throw new UsageError('--kill needs --port, so the target is named.');
     if (!options.yes) throw new UsageError('--kill needs --yes, so the kill is confirmed.');
+    // Whether a pattern happens to match one port today is not the point: the
+    // same command matches more tomorrow, so the plural is confirmed up front.
+    if (options.port.kind !== 'exact' && !options.all) {
+      throw new UsageError(
+        `--kill needs --all to use ${options.port.text}, so killing every match is deliberate.`,
+      );
+    }
   }
   if (options.force && !options.kill) throw new UsageError('--force only means something with --kill.');
+  if (options.all && !options.kill) throw new UsageError('--all only means something with --kill.');
 
   return options;
 }
@@ -127,16 +144,22 @@ function parseArgs(argv: readonly string[]): Options {
 const HELP = `slash-port — see what is listening on your ports, and kill it safely.
 
 Usage
-  slash-port [port] [options]
+  slash-port [ports] [options]
+
+Ports
+  3000                 one port
+  3xxx                 every port from 3000 to 3999; x is any digit
+  3000:3005            every port in the range, both ends included
 
 Options
-  -p, --port <number>  Only this port
+  -p, --port <ports>   Only these ports, in any of the forms above
   -u, --udp            Include UDP sockets as well as TCP
       --json           Print JSON to stdout and exit
       --plain          Print a plain table and exit
       --kill           Kill the process on --port. Requires --yes
       --force          Escalate to SIGKILL instead of SIGTERM
   -y, --yes            Confirm a kill made from the command line
+      --all            Kill every port a pattern or a range matches
       --grace <ms>     Wait this long for a graceful exit (default 3000)
       --no-color       Disable colour
   -h, --help           Show this help
@@ -166,17 +189,20 @@ function readVersion(): string {
 }
 
 function selectPort(entries: readonly PortEntry[], options: Options): PortEntry[] {
-  if (options.port === null) return [...entries];
+  const selector = options.port;
+  if (selector === null) return [...entries];
   return entries.filter(
-    (entry) => entry.port === options.port && (options.udp || entry.protocol === 'tcp'),
+    (entry) => matchesPort(selector, entry.port) && (options.udp || entry.protocol === 'tcp'),
   );
 }
 
 async function killFromCli(entries: readonly PortEntry[], options: Options): Promise<number> {
+  // parseArgs refuses --kill without --port, so there is always a selector here.
+  const selector = options.port!;
   const targets = selectPort(entries, options);
 
   if (targets.length === 0) {
-    process.stderr.write(`Nothing is listening on port ${options.port}.\n`);
+    process.stderr.write(`Nothing is listening on ${describePortSelector(selector)}.\n`);
     return EXIT_FAILED;
   }
 
@@ -251,7 +277,7 @@ async function main(argv: readonly string[]): Promise<number> {
   const instance = render(
     <App
       initialEntries={entries}
-      initialFilter={options.port === null ? '' : String(options.port)}
+      initialFilter={options.port === null ? '' : options.port.text}
       udp={options.udp}
     />,
   );

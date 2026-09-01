@@ -763,12 +763,19 @@ slash-port
 <span class="c"># open on one port</span>
 slash-port 3000
 
+<span class="c"># a pattern, where x is any digit, or a range with both ends included</span>
+slash-port 3xxx
+slash-port 3000:3005
+
 <span class="c"># for a pipe, a script, or another program</span>
 slash-port --plain
 slash-port --json
 
 <span class="c"># kill from a script: named, and confirmed</span>
-slash-port --kill --port 3000 --yes</pre>
+slash-port --kill --port 3000 --yes
+
+<span class="c"># a pattern can match several ports, so killing with one takes --all</span>
+slash-port --kill --port 3000:3005 --yes --all</pre>
 
         <h3 style="margin: 36px 0 14px">Keys</h3>
         <div class="scroller">
@@ -780,7 +787,10 @@ slash-port --kill --port 3000 --yes</pre>
               </tr>
               <tr>
                 <td><kbd>/</kbd></td>
-                <td>Filter on anything in the row. <kbd>Enter</kbd> keeps it, <kbd>Esc</kbd> clears it</td>
+                <td>
+                  Filter on anything in the row, or on ports with <code>3xxx</code> and
+                  <code>3000:3005</code>. <kbd>Enter</kbd> keeps it, <kbd>Esc</kbd> clears it
+                </td>
               </tr>
               <tr>
                 <td><kbd>x</kbd></td>

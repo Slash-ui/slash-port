@@ -333,6 +333,27 @@ describe('filtering', () => {
     expect(ui.frame()).not.toContain('22/tcp');
   });
 
+  // `slash-port 3xxx` opens the list with the pattern already in the filter.
+  test('a pattern passed on the command line arrives as the filter', async () => {
+    const ui = renderApp(<App initialEntries={sample} initialFilter="3xxx" scanner={stable} />);
+    await tick();
+
+    expect(ui.frame()).toContain('3000/tcp');
+    expect(ui.frame()).not.toContain('5173/tcp');
+  });
+
+  test('a pattern narrows to the ports it matches, not to a substring', async () => {
+    const ui = renderApp(<App initialEntries={sample} scanner={stable} />);
+    await tick();
+
+    await ui.press('/');
+    for (const character of '3xxx') await ui.press(character);
+
+    expect(ui.frame()).toContain('3000/tcp');
+    expect(ui.frame()).not.toContain('5173/tcp');
+    expect(ui.frame()).not.toContain('22/tcp');
+  });
+
   test('escape clears the filter rather than leaving the list empty', async () => {
     const ui = renderApp(<App initialEntries={sample} scanner={stable} />);
     await tick();
