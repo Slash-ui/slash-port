@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>slash-port — see what is listening on your ports</title>
+    <title>slash-port - see what is listening on your ports</title>
     <meta
       name="description"
       content="A terminal tool that lists listening ports, explains what is holding each one, and kills it safely. Linux, macOS, and Windows. No network access."
@@ -582,7 +582,7 @@
           <code>EADDRINUSE</code> tells you a port is taken. It does not tell you
           <strong>what</strong> took it, <strong>which project</strong> it belongs to, or whether
           killing it is a good idea. <code>slash-port</code> answers all three, then kills it for
-          you — after a confirmation that names it.
+          you - after a confirmation that names it.
         </p>
 
         <div class="badges">
@@ -624,7 +624,7 @@
 
         <div class="terminal">
           <div class="bar">
-            <i></i><i></i><i></i><span>~/code — slash-port</span>
+            <i></i><i></i><i></i><span>~/code - slash-port</span>
           </div>
           <pre aria-label="slash-port running in a terminal"><span class="t-head">slash-port</span>                                                               <span class="t-dim">6/6 tcp</span>
 <span class="t-dim">PORT        PID     USER       PROCESS            DESCRIPTION</span>
@@ -638,7 +638,7 @@
         </div>
         <p class="caption">
           Press <kbd>x</kbd> on a row and it asks before it signals anything. The
-          <span class="t-warn">protected</span> row is refused outright — there is no confirmation
+          <span class="t-warn">protected</span> row is refused outright - there is no confirmation
           that lets you kill <code>sshd</code>.
         </p>
       </div>
@@ -706,15 +706,15 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>
             <span
               ><b>Nothing is killed without a confirmation that names it.</b> Not in the interactive
-              list, and not from a script — <code>--kill</code> requires both
+              list, and not from a script - <code>--kill</code> requires both
               <code>--port</code> and <code>--yes</code>.</span
             >
           </li>
           <li>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>
             <span
-              ><b>Some processes are refused outright.</b> The init process, <code>sshd</code> —
-              killing it locks you out of a remote machine — macOS and Windows session processes,
+              ><b>Some processes are refused outright.</b> The init process, <code>sshd</code> -
+              killing it locks you out of a remote machine - macOS and Windows session processes,
               slash-port itself, and the shell that launched it.</span
             >
           </li>
@@ -722,7 +722,7 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>
             <span
               ><b>SIGTERM before SIGKILL.</b> A process that ignores SIGTERM is reported as having
-              survived. Escalating is a second, deliberate keystroke — never automatic.</span
+              survived. Escalating is a second, deliberate keystroke - never automatic.</span
             >
           </li>
           <li>
@@ -744,7 +744,7 @@
         <div class="note">
           <p>
             The kill key is deliberately not next to a navigation key, and colour never carries
-            meaning on its own — a protected row is labelled <code>[protected]</code> as well as
+            meaning on its own - a protected row is labelled <code>[protected]</code> as well as
             coloured, so <code>NO_COLOR</code> loses you nothing.
           </p>
         </div>
@@ -794,7 +794,7 @@ slash-port --kill --port 3000:3005 --yes --all</pre>
               </tr>
               <tr>
                 <td><kbd>x</kbd></td>
-                <td>Kill the selected port — opens the confirmation</td>
+                <td>Kill the selected port - opens the confirmation</td>
               </tr>
               <tr>
                 <td><kbd>y</kbd> <kbd>f</kbd> <kbd>n</kbd></td>
@@ -847,7 +847,7 @@ slash-port --kill --port 3000:3005 --yes --all</pre>
         <div class="note">
           <p>
             On Linux, descriptors belonging to other users are not readable without privileges. Those
-            rows show no owner rather than failing the scan, and the list says so — run with
+            rows show no owner rather than failing the scan, and the list says so - run with
             <code>sudo</code> to resolve them.
           </p>
         </div>

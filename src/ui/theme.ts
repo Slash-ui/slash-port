@@ -67,7 +67,7 @@ const TARGET_DESCRIPTION = 28;
  *
  * Columns are allocated by how much they carry. The port is never dropped,
  * the description is reserved next because it is the reason the tool exists,
- * and the rest compete for what is left — so an 80-column window keeps the
+ * and the rest compete for what is left - so an 80-column window keeps the
  * columns that matter and a 40-column one still reads.
  *
  * A zero width means the column is not shown at all.

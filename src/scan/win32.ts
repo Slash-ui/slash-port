@@ -29,7 +29,7 @@ export function parseNetstat(output: string): NetstatRow[] {
     if (protocol !== 'TCP' && protocol !== 'UDP') continue;
 
     // Localised builds translate the state word, so a TCP row also counts as
-    // listening when it has no peer — only LISTEN has a foreign port of zero.
+    // listening when it has no peer - only LISTEN has a foreign port of zero.
     if (protocol === 'TCP') {
       if (fields.length < 5) continue;
       const listening = fields[3]!.toUpperCase() === 'LISTENING' || splitHostPort(fields[2]!)?.port === 0;

@@ -27,7 +27,7 @@ local secret scanning at all.
   tooling metadata in commit messages.
 
 CI scans the whole history regardless, so a secret pushed without the hooks is
-caught — but it is caught *after* it is public, which is far worse. See
+caught - but it is caught *after* it is public, which is far worse. See
 [SECURITY.md](SECURITY.md) for what to do then.
 
 ## Working on it
@@ -60,7 +60,7 @@ src/
     theme.ts     colour roles, truncation, column widths
 ```
 
-Parsing is deliberately separated from the I/O that feeds it —
+Parsing is deliberately separated from the I/O that feeds it -
 `parseProcNet`, `parseLsof`, `parseNetstat`, and `parseTasklist` are all pure
 functions over a string. That is what makes them testable against captured
 fixtures rather than against whatever the host machine happens to be running,
@@ -81,7 +81,7 @@ adds a way round any of those will not be merged, however convenient it is.
 pipe or a redirect.
 
 **No network access.** The tool reads local state and nothing else. A change
-that adds a fetch — an update check, telemetry, an IP lookup — changes what the
+that adds a fetch - an update check, telemetry, an IP lookup - changes what the
 tool is.
 
 **Adding a description signature.** Put it in `SIGNATURES` in `src/describe.ts`,
@@ -93,13 +93,13 @@ on a machine.
 
 Every change to parsing, describing, or killing needs a test.
 
-- `test/scan.test.ts` — parsers against captured fixtures, address decoding,
+- `test/scan.test.ts` - parsers against captured fixtures, address decoding,
   socket collapsing, description heuristics, protection rules.
-- `test/kill.test.ts` — the guardrails, and real SIGTERM and SIGKILL escalation
+- `test/kill.test.ts` - the guardrails, and real SIGTERM and SIGKILL escalation
   against spawned child processes.
-- `test/ui.test.tsx` — rendering, empty states, truncation, column widths at 60
+- `test/ui.test.tsx` - rendering, empty states, truncation, column widths at 60
   and 200 columns, resize, and the confirmation dialog.
-- `test/ports.test.ts` — port selectors, and what the filter box makes of them.
+- `test/ports.test.ts` - port selectors, and what the filter box makes of them.
 
 CI runs all of it on Linux, macOS, and Windows, and additionally smoke tests the
 built binary on each, because the macOS and Windows scanners shell out to tools
@@ -128,7 +128,7 @@ minor, or a patch. A malformed subject is a version number nobody chose.
 | `revert` | Undoes an earlier commit | patch |
 | `docs` `test` `refactor` `style` `build` `ci` `chore` | Everything else | none |
 
-A `!` after the type, or a `BREAKING CHANGE:` footer, is a major — except
+A `!` after the type, or a `BREAKING CHANGE:` footer, is a major - except
 before 1.0.0, where it is a minor, because there is no compatibility promise to
 break yet.
 
@@ -140,14 +140,14 @@ feat(cli)!: rename --plain to --table
 ```
 
 Scopes are the part of the tool the change touches: `scan`, `describe`, `kill`,
-`ui`, `cli`, `format`, or a platform — `scan/linux`. They are optional.
+`ui`, `cli`, `format`, or a platform - `scan/linux`. They are optional.
 
 The `commit-msg` hook enforces all of this, and CI runs that same file against
 every commit in a pull request and against the pull request title. There is one
 implementation, so the two cannot drift.
 
 Beyond the format: write the message for someone reading `git log` in a year.
-No tooling metadata — no generated-with lines, and no co-author trailers naming
+No tooling metadata - no generated-with lines, and no co-author trailers naming
 an editor or an assistant. To be explicit about where that line sits: removing
 a trailer that advertises a tool is a formatting preference and is fine; adding
 a trailer that credits a person who did not write the change is falsifying
@@ -156,7 +156,7 @@ authorship and is not.
 ## Pull requests
 
 `main` is protected. Every change arrives by pull request, CI has to be green,
-and the maintainer's review is the only one that can approve it — `CODEOWNERS`
+and the maintainer's review is the only one that can approve it - `CODEOWNERS`
 covers every file.
 
 Pull requests are squash-merged, and the title becomes the commit subject on
@@ -172,7 +172,7 @@ npm run typecheck && npm test && npm run build
 
 Nobody types a version number. `package.json` sits at `0.0.0` between
 releases precisely so that it cannot be edited by hand and quietly disagree
-with what was published — the pipeline works the version out, and the
+with what was published - the pipeline works the version out, and the
 maintainer approves it twice.
 
 1. **A push to `main`** runs `.github/scripts/next-version.mjs`, which reads the
@@ -182,12 +182,12 @@ maintainer approves it twice.
 2. **Merging that pull request** is the first approval. It leaves `main` with a
    version that has a changelog entry and no tag.
 3. **That state triggers the publish job**, which waits in the `npm-publish`
-   environment for the maintainer's review — the second approval. Only then is
+   environment for the maintainer's review - the second approval. Only then is
    the npm token readable. It re-runs the whole suite on that exact commit,
    checks the tarball contents, tags, publishes with provenance, and creates
    the GitHub release from the changelog entry.
 
-To force a level — a documentation-only release, say — run the Release workflow
+To force a level - a documentation-only release, say - run the Release workflow
 by hand with the `level` input.
 
 You can see what the next release would be, without doing anything:
@@ -200,6 +200,6 @@ The branch protection, the environment reviewer, and the Pages source are all
 GitHub settings rather than files. `.github/scripts/setup-repo.sh` applies them,
 and is safe to re-run. It also explains the two secrets it cannot set for you:
 `NPM_TOKEN`, scoped to the `npm-publish` environment, and the optional
-`RELEASE_TOKEN` — GitHub does not start workflows for events raised by the
+`RELEASE_TOKEN` - GitHub does not start workflows for events raised by the
 default token, so without it the release pull request gets no CI run of its own
 and has to be merged past its pending checks.

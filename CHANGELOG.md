@@ -4,7 +4,7 @@ Every release is listed here. Entries are generated from the
 [Conventional Commit](https://www.conventionalcommits.org) messages in each
 release, and versions follow [Semantic Versioning](https://semver.org).
 
-## [0.1.0](https://github.com/Slash-ui/slash-port/releases/tag/v0.1.0) — 2026-09-01
+## [0.1.0](https://github.com/Slash-ui/slash-port/releases/tag/v0.1.0) - 2026-09-01
 
 ### Features
 

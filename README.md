@@ -67,7 +67,7 @@ slash-port --udp        # include UDP as well as TCP
 
 A pattern is read as digits, not as a number, so `3xxx` is the four-digit ports
 beginning with 3 and does not include 300. Ports above 65535 do not exist, so a
-pattern that can only match them — `7xxxx` — is a usage error rather than an
+pattern that can only match them - `7xxxx` - is a usage error rather than an
 empty list.
 
 To kill something from a script, name it and confirm it:
@@ -142,7 +142,7 @@ are fixed rather than configurable:
   is refused without `--all`, because what a pattern matches depends on what
   happens to be running when the command is run.
 - **Some processes are refused outright**, before any dialog is offered: the
-  init process, `sshd` — killing it locks you out of a remote machine — macOS
+  init process, `sshd` - killing it locks you out of a remote machine - macOS
   and Windows session processes, `slash-port` itself, and the shell that
   launched it.
 - **SIGTERM before SIGKILL.** A process that ignores SIGTERM is reported as
@@ -152,7 +152,7 @@ are fixed rather than configurable:
 
 On Windows there is no signal delivery: SIGTERM becomes `TerminateProcess`,
 which a process cannot catch or ignore, so nothing there gets the chance to
-shut down cleanly. The confirmation still applies — but "terminate" and "force"
+shut down cleanly. The confirmation still applies - but "terminate" and "force"
 do the same thing.
 
 ## Privacy
@@ -165,7 +165,7 @@ telemetry, no update check, and no configuration file.
 
 - Only the sixteen named terminal colours, so the display inherits your theme
   rather than fighting it.
-- Colour never carries meaning on its own — a protected row is labelled
+- Colour never carries meaning on its own - a protected row is labelled
   `[protected]` as well as coloured.
 - `NO_COLOR` and `--no-color` are honoured.
 - Redirected or piped output is plain text with no control codes, and the
@@ -184,7 +184,7 @@ Three sources, in priority order:
 2. **The project.** The directory above `node_modules` in the command line, so
    two Vite servers on 5173 and 5174 can be told apart.
 3. **A well-known port registry**, used only when the process itself could not
-   be identified — mostly other users' processes. Entries that would add
+   be identified - mostly other users' processes. Entries that would add
    nothing are suppressed: "dev server" on port 3000 is not information.
 
 Per platform:
@@ -192,7 +192,7 @@ Per platform:
 - **Linux** reads `/proc/net/tcp` and maps socket inodes through
   `/proc/[pid]/fd`. No `lsof`, which many container images do not have, and no
   subprocess. Descriptors belonging to other users are not readable without
-  privileges, so those rows show no owner rather than failing the scan — run
+  privileges, so those rows show no owner rather than failing the scan - run
   with `sudo` to resolve them.
 - **macOS** uses `lsof` in field-output mode, plus `ps` for full command lines.
 - **Windows** uses `netstat -ano` and `tasklist`, which exist on every edition
@@ -210,7 +210,7 @@ oversights:
   `--tree` option would signal the whole group.
 - **Watch mode.** The list rescans on `r`, not on a timer.
 - **Port history.** "What was on 3000 an hour ago" needs persistent state, and
-  this tool currently has none — which is worth keeping.
+  this tool currently has none - which is worth keeping.
 
 ## Versioning and releases
 

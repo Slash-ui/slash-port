@@ -114,8 +114,8 @@ export const SIGNATURES: readonly Signature[] = [
 interface RegistryEntry {
   label: string;
   /**
-   * Generic entries add nothing a reader did not already know — "dev server"
-   * on 3000 is noise — so they are recorded for completeness but suppressed.
+   * Generic entries add nothing a reader did not already know - "dev server"
+   * on 3000 is noise - so they are recorded for completeness but suppressed.
    */
   generic?: boolean;
 }
@@ -262,7 +262,7 @@ const PROTECTED_NAMES: Readonly<Record<string, string>> = {
   systemd: 'the init process',
   launchd: 'the init process',
   kernel_task: 'the kernel',
-  sshd: 'the SSH daemon — killing it locks you out of a remote machine',
+  sshd: 'the SSH daemon - killing it locks you out of a remote machine',
   'ssh-agent': 'the SSH agent',
   loginwindow: 'the macOS session',
   windowserver: 'the macOS window server',
@@ -275,7 +275,7 @@ const PROTECTED_NAMES: Readonly<Record<string, string>> = {
   services: 'the Windows service controller',
   lsass: 'the Windows security subsystem',
   smss: 'a Windows session process',
-  svchost: 'a Windows service host — it runs many unrelated services',
+  svchost: 'a Windows service host - it runs many unrelated services',
   system: 'the Windows kernel',
 };
 

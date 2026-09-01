@@ -112,8 +112,8 @@ jobs:
       # pull-request write on this repository. It exists because GitHub does not
       # start workflows for events raised by GITHUB_TOKEN: a release pull
       # request opened with the default token would sit with its required checks
-      # pending forever. Without the token this still works — the maintainer is
-      # an admin and can merge past pending checks — but CI will not have run on
+      # pending forever. Without the token this still works - the maintainer is
+      # an admin and can merge past pending checks - but CI will not have run on
       # the release commit until the publish job re-runs it.
       - uses: actions/checkout@v4
         with:
@@ -225,8 +225,8 @@ jobs:
         run: node .github/scripts/check-pack.mjs
 
       # Publishing comes before tagging, deliberately. npm is the step that can
-      # fail for reasons outside this repository — a missing or expired token,
-      # a registry outage, a name already taken — and a tag pushed before it
+      # fail for reasons outside this repository - a missing or expired token,
+      # a registry outage, a name already taken - and a tag pushed before it
       # would leave v$VERSION pointing at a release that does not exist. A
       # failed publish now leaves the repository exactly as it was, so the job
       # can simply be re-run.

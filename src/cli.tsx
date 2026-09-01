@@ -141,7 +141,7 @@ function parseArgs(argv: readonly string[]): Options {
   return options;
 }
 
-const HELP = `slash-port — see what is listening on your ports, and kill it safely.
+const HELP = `slash-port - see what is listening on your ports, and kill it safely.
 
 Usage
   slash-port [ports] [options]

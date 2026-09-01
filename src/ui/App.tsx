@@ -125,8 +125,8 @@ export function App({
 
   const viewport = Math.max(3, rows - CHROME_ROWS);
 
-  // The list can shrink underneath the cursor — a filter keystroke, or a
-  // rescan after a kill — so the selection is clamped rather than left dangling.
+  // The list can shrink underneath the cursor - a filter keystroke, or a
+  // rescan after a kill - so the selection is clamped rather than left dangling.
   useEffect(() => {
     setSelected((current) => Math.min(current, Math.max(0, visible.length - 1)));
   }, [visible.length]);

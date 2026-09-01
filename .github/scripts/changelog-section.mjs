@@ -3,7 +3,7 @@
  * Print one version's section of CHANGELOG.md.
  *
  * The GitHub release notes are the changelog entry, read back out rather than
- * regenerated, so the two can never disagree — and so what is published is
+ * regenerated, so the two can never disagree - and so what is published is
  * exactly the text that was reviewed in the release pull request.
  *
  * Usage:
