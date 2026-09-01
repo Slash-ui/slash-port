@@ -47,7 +47,7 @@ jobs:
       version: ${{ steps.next.outputs.version }}
       level: ${{ steps.next.outputs.level }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -115,7 +115,7 @@ jobs:
       # pending forever. Without the token this still works - the maintainer is
       # an admin and can merge past pending checks - but CI will not have run on
       # the release commit until the publish job re-runs it.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
@@ -189,7 +189,7 @@ jobs:
       id-token: write # to sign the provenance attestation
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
