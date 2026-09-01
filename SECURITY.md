@@ -20,7 +20,7 @@ processes, exactly as any other program would.
 
 Things worth reporting:
 
-- A way to make it kill something on the protected list — the init process,
+- A way to make it kill something on the protected list - the init process,
   `sshd`, a session process, itself, or its parent shell.
 - A way to make it kill something without the confirmation that names the
   target.
@@ -38,7 +38,7 @@ The order is:
 2. **Then rewrite the history**, if it is still worth doing.
 
 Never the other way round. A rewritten history does not un-leak a key that was
-public for an hour — it only makes it harder to find out what happened. Assume
+public for an hour - it only makes it harder to find out what happened. Assume
 anything pushed to a public repository was scraped within minutes.
 
 ## Supported versions

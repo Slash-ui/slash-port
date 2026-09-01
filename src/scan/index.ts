@@ -1,4 +1,4 @@
-import { describe, guardReason } from '../describe.js';
+import { describe, elevationReason, guardReason } from '../describe.js';
 import { ScanError } from '../types.js';
 import type { Family, PortEntry, RawSocket, ScanOptions } from '../types.js';
 import { scanDarwin } from './darwin.js';
@@ -60,6 +60,7 @@ export function collapse(sockets: readonly RawSocket[]): PortEntry[] {
       label: description.label,
       hint: description.hint,
       guard: guardReason(base),
+      elevation: elevationReason(base),
     });
   }
 

@@ -1,0 +1,48 @@
+name: Bug report
+description: Something did not work the way it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Everything you paste here is public. `slash-port` output lists what is
+        running on your machine, so check it for hostnames, project paths, and
+        anything else you would rather not publish before you post it.
+  - type: input
+    id: version
+    attributes:
+      label: slash-port version
+      description: Output of `slash-port --version`.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and version
+      placeholder: macOS 26.1 / Ubuntu 24.04 / Windows 11
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      description: Output of `node --version`.
+      placeholder: v22.11.0
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected to happen
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: >-
+        The output of `slash-port --plain` is usually the most useful thing to
+        include, along with the exact command you ran.
+    validations:
+      required: true

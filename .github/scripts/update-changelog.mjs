@@ -3,7 +3,7 @@
  * Prepend a release to CHANGELOG.md.
  *
  * Takes the notes that `next-version.mjs` wrote, so the changelog and the
- * GitHub release say the same thing — they are the same text, not two
+ * GitHub release say the same thing - they are the same text, not two
  * descriptions of the same release that drift apart.
  *
  * Usage:
@@ -36,8 +36,8 @@ const repository = /github\.com[/:]([^/]+\/[^/.]+)/.exec(manifest.repository?.ur
 
 const date = new Date().toISOString().slice(0, 10);
 const heading = repository
-  ? `## [${version}](https://github.com/${repository}/releases/tag/v${version}) — ${date}`
-  : `## ${version} — ${date}`;
+  ? `## [${version}](https://github.com/${repository}/releases/tag/v${version}) - ${date}`
+  : `## ${version} - ${date}`;
 
 const existing = existsSync('CHANGELOG.md') ? readFileSync('CHANGELOG.md', 'utf8') : HEADER;
 

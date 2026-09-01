@@ -40,7 +40,7 @@ function portNumber(raw: string): number {
 /**
  * `3xxx` is every four-digit port beginning with 3, so a pattern is matched
  * against the port's digits rather than its value: `xxx` is 100 to 999, not 0
- * to 999. The bounds come from replacing every `x` with 0 and with 9 — a
+ * to 999. The bounds come from replacing every `x` with 0 and with 9 - a
  * leading `x` with 1, because no port is written with a leading zero.
  */
 function parsePattern(text: string): PortSelector {
@@ -118,8 +118,8 @@ export function looksLikePort(raw: string): boolean {
 }
 
 /**
- * The filter box reads `3xxx` and `3000:3005` as ports, and everything else —
- * including a bare `3000` — as a substring, because the filter still has to
+ * The filter box reads `3xxx` and `3000:3005` as ports, and everything else -
+ * including a bare `3000` - as a substring, because the filter still has to
  * find pids, users, and project names. Half-typed input is not an error there,
  * so an unreadable selector is simply not one.
  */

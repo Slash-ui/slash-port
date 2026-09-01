@@ -143,6 +143,7 @@ const entry = (port: number, overrides: Partial<PortEntry> = {}): PortEntry => (
   label: 'Node.js',
   hint: null,
   guard: null,
+  elevation: null,
   ...overrides,
 });
 

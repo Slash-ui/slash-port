@@ -24,12 +24,26 @@ export function formatAddresses(entry: PortEntry): string {
   return entry.addresses.join(', ');
 }
 
-/** The description column: what it is, which project, and whether it is protected. */
+/**
+ * The description column: what it is, which project, and whether you can do
+ * anything about it. A guarded row is never also marked `[locked]` - it is
+ * refused whoever you are, so the extra badge would only add noise.
+ */
 export function formatDescription(entry: PortEntry): string {
   const parts = [entry.label];
   if (entry.hint) parts.push(`(${entry.hint})`);
   if (entry.guard) parts.push('[protected]');
+  else if (entry.elevation) parts.push('[locked]');
   return parts.join(' ');
+}
+
+/**
+ * What to do about a locked row. `sudo` is the answer almost everywhere and
+ * the wrong word on Windows, so the remedy is named per platform while the
+ * badge stays the same in every terminal.
+ */
+export function elevationRemedy(platform: NodeJS.Platform = process.platform): string {
+  return platform === 'win32' ? 'an elevated terminal' : 'sudo';
 }
 
 /** Everything a row can be matched on, lowercased once for filtering. */
@@ -103,5 +117,7 @@ export function toJson(entries: readonly PortEntry[]): unknown {
     project: entry.hint,
     protected: entry.guard !== null,
     protectedReason: entry.guard,
+    locked: entry.elevation !== null,
+    lockedReason: entry.elevation,
   }));
 }

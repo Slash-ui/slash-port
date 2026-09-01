@@ -1,0 +1,30 @@
+# Gitleaks configuration.
+#
+# Extends the upstream ruleset rather than replacing it, so rules added
+# upstream arrive without anyone having to notice them. Gitleaks reads this
+# file from the repository root on its own - both in CI, which scans the whole
+# history, and in `gitleaks protect --staged` from the pre-commit hook.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "pem-private-key-block"
+description = "PEM private key block"
+regex = '''-----BEGIN[ A-Z]*PRIVATE KEY-----'''
+tags = ["key", "private"]
+
+[allowlist]
+description = "Paths that legitimately contain key-shaped strings"
+paths = [
+  # Captured /proc/net tables. A socket inode next to a zero-padded hex
+  # address has the shape of a high-entropy secret and is neither secret nor
+  # high-entropy - and these files exist precisely so the parsers can be
+  # tested against something reproducible.
+  '''test/fixtures/.*''',
+  '''package-lock\.json''',
+]
+regexes = [
+  # An IPv6 address in /proc is thirty-two hex characters, mostly zeroes.
+  '''0{8}[0-9A-F]{8}''',
+]

@@ -53,9 +53,10 @@ jobs:
           node dist/cli.js --json > ports.json
           node -e "const p = JSON.parse(require('fs').readFileSync('ports.json','utf8')); if (!Array.isArray(p)) { throw new Error('--json did not produce an array'); } console.log(p.length + ' listening sockets found');"
           # A pattern and a range are questions with a yes-or-no answer, so
-          # both exits are correct and only a usage error would be a failure.
-          node dist/cli.js --plain --port 3xxx || test $? -eq 1
-          node dist/cli.js --plain --port 3000:3005 || test $? -eq 1
+          # either exit is correct: 0 found something, 2 found nothing, and
+          # anything else is the failure this is looking for.
+          node dist/cli.js --plain --port 3xxx || test $? -eq 2
+          node dist/cli.js --plain --port 3000:3005 || test $? -eq 2
 
       - name: A pipe must never receive control codes
         shell: bash
@@ -67,16 +68,19 @@ jobs:
             exit 1
           fi
 
+      # 1 is a malformed command line and 3 is one that was understood and
+      # refused, so the codes are asserted individually rather than as "not
+      # zero" - the difference is the contract.
       - name: Refuse to kill without being told what and confirmed
         shell: bash
         run: |
           set -euo pipefail
-          node dist/cli.js --kill && { echo 'A bare --kill was accepted.' >&2; exit 1; } || test $? -eq 2
-          node dist/cli.js --kill --port 3000 && { echo '--kill without --yes was accepted.' >&2; exit 1; } || test $? -eq 2
-          node dist/cli.js --kill --port 3xxx --yes && { echo 'A pattern kill was accepted without --all.' >&2; exit 1; } || test $? -eq 2
-          node dist/cli.js --kill --port 3000:3005 --yes && { echo 'A range kill was accepted without --all.' >&2; exit 1; } || test $? -eq 2
-          node dist/cli.js --port 7xxxx && { echo 'A pattern no port can match was accepted.' >&2; exit 1; } || test $? -eq 2
-          node dist/cli.js --nonsense && { echo 'An unknown flag was accepted.' >&2; exit 1; } || test $? -eq 2
+          node dist/cli.js --kill && { echo 'A bare --kill was accepted.' >&2; exit 1; } || test $? -eq 1
+          node dist/cli.js --port 7xxxx && { echo 'A pattern no port can match was accepted.' >&2; exit 1; } || test $? -eq 1
+          node dist/cli.js --nonsense && { echo 'An unknown flag was accepted.' >&2; exit 1; } || test $? -eq 1
+          node dist/cli.js --kill --port 3000 && { echo '--kill without --yes was accepted.' >&2; exit 1; } || test $? -eq 3
+          node dist/cli.js --kill --port 3xxx --yes && { echo 'A pattern kill was accepted without --all.' >&2; exit 1; } || test $? -eq 3
+          node dist/cli.js --kill --port 3000:3005 --yes && { echo 'A range kill was accepted without --all.' >&2; exit 1; } || test $? -eq 3
 
   commits:
     name: commit messages
