@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>slash-port — see what is listening on your ports</title>
+    <meta
+      name="description"
+      content="A terminal tool that lists listening ports, explains what is holding each one, and kills it safely. Linux, macOS, and Windows. No network access."
+    />
+    <link rel="canonical" href="https://slash-ui.github.io/slash-port/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="slash-port" />
+    <meta
+      property="og:description"
+      content="See what is listening on your ports, understand what it is, and kill it safely."
+    />
+    <meta property="og:url" content="https://slash-ui.github.io/slash-port/" />
+    <meta name="twitter:card" content="summary" />
+
+    <!-- Inlined as a data URI: no request, and no separate file to keep in sync. -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1117'/%3E%3Cpath d='M7 11l5 5-5 5' fill='none' stroke='%2338bdae' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M16 21h9' stroke='%2338bdae' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+
+    <style>
+      :root {
+        --bg: #fbfcfd;
+        --panel: #ffffff;
+        --terminal: #0d1117;
+        --terminal-ink: #d5dae1;
+        --ink: #16202b;
+        --ink-soft: #566473;
+        --ink-faint: #8c98a5;
+        --line: #e2e7ec;
+        --accent: #0f8b7d;
+        --accent-soft: #e6f4f2;
+        --warn: #b26a00;
+        --danger: #c0392b;
+        --radius: 12px;
+        --measure: 68ch;
+        --shadow: 0 1px 2px rgb(16 32 43 / 6%), 0 8px 24px rgb(16 32 43 / 6%);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b0f14;
+          --panel: #121820;
+          --terminal: #05080c;
+          --terminal-ink: #cdd4dc;
+          --ink: #e6ebf1;
+          --ink-soft: #9aa7b4;
+          --ink-faint: #6b7885;
+          --line: #1e2833;
+          --accent: #38bdae;
+          --accent-soft: #10262a;
+          --warn: #d79b3a;
+          --danger: #e5796b;
+          --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 10px 30px rgb(0 0 0 / 30%);
+        }
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font: 16px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      code,
+      kbd,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+          "Liberation Mono", monospace;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration-thickness: 1px;
+        text-underline-offset: 2px;
+      }
+
+      a:hover {
+        text-decoration-thickness: 2px;
+      }
+
+      .wrap {
+        max-width: 940px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      /* ---------- masthead ---------- */
+
+      header.site {
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+      }
+
+      header.site .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding-block: 14px;
+      }
+
+      .mark {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+        color: var(--ink);
+        text-decoration: none;
+      }
+
+      .mark svg {
+        display: block;
+        color: var(--accent);
+      }
+
+      nav.site {
+        display: flex;
+        gap: 20px;
+        font-size: 15px;
+      }
+
+      nav.site a {
+        color: var(--ink-soft);
+        text-decoration: none;
+      }
+
+      nav.site a:hover {
+        color: var(--accent);
+      }
+
+      /* ---------- hero ---------- */
+
+      .hero {
+        padding: 72px 0 8px;
+      }
+
+      h1 {
+        margin: 0 0 14px;
+        font-size: clamp(38px, 6.5vw, 58px);
+        line-height: 1.04;
+        letter-spacing: -0.03em;
+        font-weight: 700;
+      }
+
+      .lede {
+        max-width: var(--measure);
+        margin: 0 0 10px;
+        font-size: clamp(18px, 2.4vw, 21px);
+        line-height: 1.5;
+        color: var(--ink-soft);
+      }
+
+      .lede strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      .badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 22px 0 28px;
+      }
+
+      .badges img {
+        height: 20px;
+        display: block;
+      }
+
+      .cta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 56px;
+      }
+
+      .install {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 11px 12px 11px 16px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--panel);
+        font-size: 15px;
+        box-shadow: var(--shadow);
+      }
+
+      .install code {
+        white-space: nowrap;
+      }
+
+      .install .prompt {
+        color: var(--ink-faint);
+        user-select: none;
+      }
+
+      button.copy {
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: transparent;
+        color: var(--ink-soft);
+        font: inherit;
+        font-size: 13px;
+        padding: 4px 10px;
+        cursor: pointer;
+      }
+
+      button.copy:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 18px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        color: var(--ink);
+        font-size: 15px;
+        font-weight: 550;
+        text-decoration: none;
+        box-shadow: var(--shadow);
+      }
+
+      .button:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      /* ---------- terminal ---------- */
+
+      .terminal {
+        border-radius: var(--radius);
+        overflow: hidden;
+        background: var(--terminal);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--line);
+      }
+
+      .terminal .bar {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 11px 14px;
+        background: rgb(255 255 255 / 4%);
+        border-bottom: 1px solid rgb(255 255 255 / 7%);
+      }
+
+      .terminal .bar i {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: #3d444d;
+      }
+
+      .terminal .bar span {
+        margin-left: 6px;
+        color: #7d8590;
+        font-size: 12px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      .terminal pre {
+        margin: 0;
+        padding: 18px 20px 20px;
+        overflow-x: auto;
+        color: var(--terminal-ink);
+        font-size: 13px;
+        line-height: 1.62;
+        tab-size: 2;
+      }
+
+      .t-dim {
+        color: #7d8590;
+      }
+      .t-head {
+        color: #58c3d4;
+        font-weight: 600;
+      }
+      .t-desc {
+        color: #c58ee0;
+      }
+      .t-warn {
+        color: #d79b3a;
+      }
+      .t-ok {
+        color: #63c381;
+      }
+      .t-sel {
+        background: #1f2a36;
+        color: #e6ebf1;
+        display: inline-block;
+        width: 100%;
+      }
+
+      .caption {
+        margin: 12px 0 0;
+        font-size: 14px;
+        color: var(--ink-faint);
+      }
+
+      /* ---------- sections ---------- */
+
+      section {
+        padding: 64px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      section:first-of-type {
+        border-top: none;
+      }
+
+      h2 {
+        margin: 0 0 10px;
+        font-size: clamp(24px, 3.4vw, 30px);
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+      }
+
+      h3 {
+        margin: 0 0 6px;
+        font-size: 17px;
+        letter-spacing: -0.01em;
+      }
+
+      .section-lede {
+        max-width: var(--measure);
+        margin: 0 0 32px;
+        color: var(--ink-soft);
+      }
+
+      p {
+        max-width: var(--measure);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 18px;
+      }
+
+      .card {
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+      }
+
+      .card p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 15px;
+      }
+
+      .card .icon {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        margin-bottom: 14px;
+        border-radius: 9px;
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .rules {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 2px;
+        max-width: var(--measure);
+      }
+
+      .rules li {
+        display: grid;
+        grid-template-columns: 24px 1fr;
+        gap: 12px;
+        padding: 14px 0;
+        border-bottom: 1px solid var(--line);
+        color: var(--ink-soft);
+        font-size: 15px;
+      }
+
+      .rules li:last-child {
+        border-bottom: none;
+      }
+
+      .rules b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      .rules svg {
+        margin-top: 3px;
+        color: var(--accent);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 15px;
+      }
+
+      .scroller {
+        overflow-x: auto;
+      }
+
+      th,
+      td {
+        text-align: left;
+        padding: 11px 14px 11px 0;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+
+      th {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--ink-faint);
+        font-weight: 600;
+      }
+
+      td:first-child {
+        white-space: nowrap;
+      }
+
+      td code,
+      .rules code,
+      p code,
+      li code {
+        background: var(--accent-soft);
+        color: var(--accent);
+        padding: 1px 6px;
+        border-radius: 5px;
+        font-size: 0.88em;
+      }
+
+      kbd {
+        display: inline-block;
+        min-width: 22px;
+        text-align: center;
+        padding: 2px 6px;
+        border: 1px solid var(--line);
+        border-bottom-width: 2px;
+        border-radius: 6px;
+        background: var(--panel);
+        color: var(--ink);
+        font-size: 12.5px;
+        line-height: 1.4;
+      }
+
+      pre.code {
+        margin: 0;
+        padding: 16px 18px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--panel);
+        overflow-x: auto;
+        font-size: 13.5px;
+        line-height: 1.7;
+      }
+
+      pre.code .c {
+        color: var(--ink-faint);
+      }
+
+      .note {
+        max-width: var(--measure);
+        margin-top: 28px;
+        padding: 16px 18px;
+        border-left: 3px solid var(--accent);
+        border-radius: 0 8px 8px 0;
+        background: var(--accent-soft);
+        color: var(--ink-soft);
+        font-size: 15px;
+      }
+
+      .note p {
+        margin: 0;
+      }
+
+      footer.site {
+        border-top: 1px solid var(--line);
+        padding: 40px 0 60px;
+        color: var(--ink-faint);
+        font-size: 14px;
+      }
+
+      footer.site .wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px 28px;
+        justify-content: space-between;
+      }
+
+      footer.site a {
+        color: var(--ink-soft);
+        text-decoration: none;
+      }
+
+      footer.site a:hover {
+        color: var(--accent);
+      }
+
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+      }
+
+      @media (max-width: 620px) {
+        nav.site {
+          display: none;
+        }
+        .hero {
+          padding-top: 48px;
+        }
+        section {
+          padding: 48px 0;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header class="site">
+      <div class="wrap">
+        <a class="mark" href="./">
+          <svg width="20" height="20" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+            <path
+              d="M7 11l5 5-5 5"
+              stroke="currentColor"
+              stroke-width="2.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path d="M16 21h9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" />
+          </svg>
+          slash-port
+        </a>
+        <nav class="site">
+          <a href="#what">What it shows</a>
+          <a href="#safety">Safety</a>
+          <a href="#reference">Reference</a>
+          <a href="https://github.com/Slash-ui/slash-port">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <div class="hero">
+        <h1>What is on port 3000?</h1>
+        <p class="lede">
+          <code>EADDRINUSE</code> tells you a port is taken. It does not tell you
+          <strong>what</strong> took it, <strong>which project</strong> it belongs to, or whether
+          killing it is a good idea. <code>slash-port</code> answers all three, then kills it for
+          you — after a confirmation that names it.
+        </p>
+
+        <div class="badges">
+          <a href="https://www.npmjs.com/package/slash-port"
+            ><img
+              src="https://img.shields.io/npm/v/slash-port?style=flat-square&color=0f8b7d&label=npm"
+              alt="slash-port on npm"
+          /></a>
+          <a href="https://github.com/Slash-ui/slash-port/actions/workflows/ci.yml"
+            ><img
+              src="https://img.shields.io/github/actions/workflow/status/Slash-ui/slash-port/ci.yml?branch=main&style=flat-square&label=ci"
+              alt="CI status"
+          /></a>
+          <a href="https://github.com/Slash-ui/slash-port/blob/main/LICENSE"
+            ><img
+              src="https://img.shields.io/npm/l/slash-port?style=flat-square&color=6b7885"
+              alt="MIT licence"
+          /></a>
+          <img
+            src="https://img.shields.io/node/v/slash-port?style=flat-square&color=6b7885"
+            alt="Supported Node versions"
+          />
+        </div>
+
+        <div class="cta">
+          <div class="install">
+            <code><span class="prompt">$</span> npm install -g slash-port</code>
+            <button class="copy" type="button" data-copy="npm install -g slash-port">Copy</button>
+          </div>
+          <a class="button" href="https://github.com/Slash-ui/slash-port">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path
+                d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.81.06 1.23.83 1.23.83.72 1.23 1.89.87 2.35.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"
+              />
+            </svg>
+            Source on GitHub
+          </a>
+        </div>
+
+        <div class="terminal">
+          <div class="bar">
+            <i></i><i></i><i></i><span>~/code — slash-port</span>
+          </div>
+          <pre aria-label="slash-port running in a terminal"><span class="t-head">slash-port</span>                                                               <span class="t-dim">6/6 tcp</span>
+<span class="t-dim">PORT        PID     USER       PROCESS            DESCRIPTION</span>
+<span class="t-sel">3000/tcp    41822   amin       node               Next.js (shop)                    </span>
+5173/tcp    41905   amin       node               <span class="t-desc">Vite dev server (admin)</span>
+5432/tcp    612     postgres   postgres           <span class="t-desc">PostgreSQL</span>
+6379/tcp    788     redis      redis-server       <span class="t-desc">Redis</span>
+8080/tcp    39044   amin       docker-proxy       <span class="t-desc">Docker published port</span>
+<span class="t-warn">22/tcp      1       root       sshd               OpenSSH server [protected]</span>
+<span class="t-dim">↑↓/jk move · PgUp/PgDn/g/G jump · / filter · x kill · r rescan · u udp · q quit</span></pre>
+        </div>
+        <p class="caption">
+          Press <kbd>x</kbd> on a row and it asks before it signals anything. The
+          <span class="t-warn">protected</span> row is refused outright — there is no confirmation
+          that lets you kill <code>sshd</code>.
+        </p>
+      </div>
+
+      <section id="what">
+        <h2>Three things a port number cannot tell you</h2>
+        <p class="section-lede">
+          Every other answer to “what is on 3000” gives you a pid. A pid and the word
+          <code>node</code> is not an answer.
+        </p>
+
+        <div class="grid">
+          <div class="card">
+            <div class="icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 2 2 7l10 5 10-5-10-5Z" /><path d="m2 17 10 5 10-5" /><path d="m2 12 10 5 10-5" />
+              </svg>
+            </div>
+            <h3>What it actually is</h3>
+            <p>
+              Frameworks are matched before the runtimes that host them, so
+              <code>node …/vite</code> reports <em>Vite dev server</em>, not <em>Node.js</em>. Around
+              ninety signatures, from Next.js and Django to Postgres and docker-proxy.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 20h16" /><path d="M4 20V8l6-4 6 4v12" /><path d="M10 20v-5h4v5" />
+              </svg>
+            </div>
+            <h3>Which project it belongs to</h3>
+            <p>
+              The directory above <code>node_modules</code> in the command line. Two Vite servers on
+              5173 and 5174 stop being interchangeable, which is exactly the moment you need to tell
+              them apart.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /><path d="m9 12 2 2 4-4" />
+              </svg>
+            </div>
+            <h3>Whether killing it is wise</h3>
+            <p>
+              Some things are never worth killing from a list. Those rows are labelled and refused
+              before a dialog is ever offered, rather than being made easy to get wrong.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="safety">
+        <h2>The safety rules are fixed, not configurable</h2>
+        <p class="section-lede">
+          Killing the wrong process at a terminal is easy, and unrecoverable. So there is no flag,
+          no config file, and no combination of arguments that gets round any of these.
+        </p>
+
+        <ul class="rules">
+          <li>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>
+            <span
+              ><b>Nothing is killed without a confirmation that names it.</b> Not in the interactive
+              list, and not from a script — <code>--kill</code> requires both
+              <code>--port</code> and <code>--yes</code>.</span
+            >
+          </li>
+          <li>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>
+            <span
+              ><b>Some processes are refused outright.</b> The init process, <code>sshd</code> —
+              killing it locks you out of a remote machine — macOS and Windows session processes,
+              slash-port itself, and the shell that launched it.</span
+            >
+          </li>
+          <li>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>
+            <span
+              ><b>SIGTERM before SIGKILL.</b> A process that ignores SIGTERM is reported as having
+              survived. Escalating is a second, deliberate keystroke — never automatic.</span
+            >
+          </li>
+          <li>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>
+            <span
+              ><b>A process that has already exited is never signalled</b>, because by then its pid
+              may belong to something else entirely.</span
+            >
+          </li>
+          <li>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>
+            <span
+              ><b>No network access, at any point.</b> It reads the local socket table and the local
+              process table. No telemetry, no update check, no config file.</span
+            >
+          </li>
+        </ul>
+
+        <div class="note">
+          <p>
+            The kill key is deliberately not next to a navigation key, and colour never carries
+            meaning on its own — a protected row is labelled <code>[protected]</code> as well as
+            coloured, so <code>NO_COLOR</code> loses you nothing.
+          </p>
+        </div>
+      </section>
+
+      <section id="reference">
+        <h2>Reference</h2>
+        <p class="section-lede">
+          Node 22 or newer, on Linux, macOS, and Windows. Piped output is plain text with no control
+          codes, so it survives a <code>grep</code>.
+        </p>
+
+        <pre class="code"><span class="c"># the interactive list</span>
+slash-port
+
+<span class="c"># open on one port</span>
+slash-port 3000
+
+<span class="c"># for a pipe, a script, or another program</span>
+slash-port --plain
+slash-port --json
+
+<span class="c"># kill from a script: named, and confirmed</span>
+slash-port --kill --port 3000 --yes</pre>
+
+        <h3 style="margin: 36px 0 14px">Keys</h3>
+        <div class="scroller">
+          <table>
+            <tbody>
+              <tr>
+                <td><kbd>↑</kbd> <kbd>↓</kbd> <kbd>j</kbd> <kbd>k</kbd></td>
+                <td>Move. <kbd>PgUp</kbd> <kbd>PgDn</kbd> page, <kbd>g</kbd> <kbd>G</kbd> jump to the ends</td>
+              </tr>
+              <tr>
+                <td><kbd>/</kbd></td>
+                <td>Filter on anything in the row. <kbd>Enter</kbd> keeps it, <kbd>Esc</kbd> clears it</td>
+              </tr>
+              <tr>
+                <td><kbd>x</kbd></td>
+                <td>Kill the selected port — opens the confirmation</td>
+              </tr>
+              <tr>
+                <td><kbd>y</kbd> <kbd>f</kbd> <kbd>n</kbd></td>
+                <td>In the confirmation: SIGTERM, force with SIGKILL, cancel</td>
+              </tr>
+              <tr>
+                <td><kbd>r</kbd> <kbd>u</kbd> <kbd>q</kbd></td>
+                <td>Rescan, toggle UDP, quit</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="margin: 36px 0 14px">How each platform reads the socket table</h3>
+        <div class="scroller">
+          <table>
+            <thead>
+              <tr>
+                <th>Platform</th>
+                <th>Method</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Linux</td>
+                <td>
+                  <code>/proc/net/tcp</code> directly, with socket inodes mapped through
+                  <code>/proc/[pid]/fd</code>. No <code>lsof</code>, which many container images do
+                  not have, and no subprocess at all
+                </td>
+              </tr>
+              <tr>
+                <td>macOS</td>
+                <td>
+                  <code>lsof</code> in field-output mode, which emits one tagged field per line and
+                  does not shift when a value gets wider, plus <code>ps</code> for full command lines
+                </td>
+              </tr>
+              <tr>
+                <td>Windows</td>
+                <td>
+                  <code>netstat -ano</code> and <code>tasklist</code>, which exist on every edition
+                  and avoid PowerShell's startup cost
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="note">
+          <p>
+            On Linux, descriptors belonging to other users are not readable without privileges. Those
+            rows show no owner rather than failing the scan, and the list says so — run with
+            <code>sudo</code> to resolve them.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site">
+      <div class="wrap">
+        <span>MIT © Amin Shariati</span>
+        <div class="links">
+          <a href="https://github.com/Slash-ui/slash-port">GitHub</a>
+          <a href="https://www.npmjs.com/package/slash-port">npm</a>
+          <a href="https://github.com/Slash-ui/slash-port/blob/main/CHANGELOG.md">Changelog</a>
+          <a href="https://github.com/Slash-ui/slash-port/blob/main/CONTRIBUTING.md">Contributing</a>
+          <a href="https://github.com/Slash-ui/slash-port/issues">Issues</a>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      // Progressive enhancement only: without it the command is still selectable.
+      for (const button of document.querySelectorAll('button.copy')) {
+        button.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(button.dataset.copy);
+            const previous = button.textContent;
+            button.textContent = 'Copied';
+            setTimeout(() => {
+              button.textContent = previous;
+            }, 1400);
+          } catch {
+            // Clipboard blocked, which is the browser's call to make.
+          }
+        });
+      }
+    </script>
+  </body>
+</html>
