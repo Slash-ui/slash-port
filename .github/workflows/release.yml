@@ -47,11 +47,11 @@ jobs:
       version: ${{ steps.next.outputs.version }}
       level: ${{ steps.next.outputs.level }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
 
@@ -115,21 +115,21 @@ jobs:
       # pending forever. Without the token this still works - the maintainer is
       # an admin and can merge past pending checks - but CI will not have run on
       # the release commit until the publish job re-runs it.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           persist-credentials: true
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: release-notes
 
-      - name: Bump the version and write the changelog
+      - name: Bump the version, the changelog, and the README badge
         env:
           VERSION: ${{ needs.plan.outputs.version }}
         run: |
@@ -139,7 +139,8 @@ jobs:
           git checkout -B "release/v$VERSION"
           npm version "$VERSION" --no-git-tag-version
           node .github/scripts/update-changelog.mjs "$VERSION"
-          git add package.json package-lock.json CHANGELOG.md
+          node .github/scripts/update-readme.mjs "$VERSION"
+          git add package.json package-lock.json CHANGELOG.md README.md
           git commit -m "chore(release): v$VERSION"
           git push --force origin "release/v$VERSION"
 
@@ -189,11 +190,11 @@ jobs:
       id-token: write # to sign the provenance attestation
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           registry-url: https://registry.npmjs.org
@@ -220,6 +221,12 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+      # README.md is inside the tarball, so a stale version badge is shipped to
+      # npm and rendered on the package page. The release pull request wrote it;
+      # this is the assertion that it was not clobbered on the way to main.
+      - name: Verify the README names this version
+        run: node .github/scripts/update-readme.mjs --check
 
       - name: Verify the tarball contents
         run: node .github/scripts/check-pack.mjs

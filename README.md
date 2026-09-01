@@ -1,5 +1,6 @@
 # slash-port
 
+<!-- release:badge -->[![github](https://img.shields.io/badge/github-v0.2.1-0f8b7d?logo=github&logoColor=white)](https://github.com/Slash-ui/slash-port/releases/tag/v0.2.1)<!-- /release:badge -->
 [![npm](https://img.shields.io/npm/v/slash-port?logo=npm&logoColor=white&color=0f8b7d)](https://www.npmjs.com/package/slash-port)
 [![downloads](https://img.shields.io/npm/dm/slash-port?color=0f8b7d)](https://www.npmjs.com/package/slash-port)
 [![CI](https://github.com/Slash-ui/slash-port/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Slash-ui/slash-port/actions/workflows/ci.yml)
@@ -42,6 +43,49 @@ npx slash-port
 ```
 
 Requires Node 22 or newer. Works on Linux, macOS, and Windows.
+
+### Updating
+
+The current release is
+<!-- release:version -->0.2.1<!-- /release:version -->. To see what you have,
+and what is published:
+
+```sh
+slash-port --version        # the one you are running
+npm view slash-port version # the one on npm
+```
+
+To move to the latest:
+
+```sh
+npm install -g slash-port@latest
+```
+
+`npm install -g …@latest` rather than `npm update -g slash-port`, because
+`update` will not cross a major version - and before 1.0.0 it will not cross a
+minor one either, which is every release this tool has had so far. Naming
+`@latest` always gets you the newest published version.
+
+`npx` caches the version it first downloaded, so ask it for the latest
+explicitly:
+
+```sh
+npx slash-port@latest
+```
+
+There is no automatic update check. `slash-port` makes no network connections
+at all, which means it will never tell you a new version exists - you find out
+here, or from npm. Upgrading is safe: there is no state, no configuration file,
+and nothing to migrate. To go the other way, name the version you want -
+`npm install -g slash-port@0.1.0` - and to remove it entirely:
+
+```sh
+npm uninstall -g slash-port
+```
+
+Breaking changes are listed under **Breaking changes** in the
+[changelog](CHANGELOG.md), so a major - or, before 1.0.0, a minor - is worth
+reading before you take it.
 
 ## Use
 
@@ -237,6 +281,13 @@ workflow reads the types since the last tag to decide between a major, a minor,
 and a patch. Every release is published with npm
 [provenance](https://docs.npmjs.com/generating-provenance-statements), so the
 tarball can be traced to the exact commit and workflow that built it.
+
+One commit does the whole bump: `package.json`, the changelog entry, and the
+version badge at the top of this file are written together, so the three cannot
+name different versions. The badges either side of it are read live - npm and
+the download count from the registry, CI and Release from the Actions API - so
+the `github` badge and the `npm` badge agreeing means the publish landed, and
+them disagreeing means it did not.
 
 See the [changelog](CHANGELOG.md) for what changed when.
 
