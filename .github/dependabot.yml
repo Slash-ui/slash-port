@@ -1,0 +1,32 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # The release pipeline reads the type of every commit since the last tag to
+    # choose the next version number, and CI checks every commit in a pull
+    # request against the same rules. Dependabot's default subject - "Bump x
+    # from 1 to 2" - is not a Conventional Commit, so its pull requests would
+    # fail the commit-message job on arrival.
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope
+    groups:
+      # One pull request for the toolchain rather than five separate ones.
+      dev-dependencies:
+        dependency-type: development
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    # One action is pinned to a commit SHA rather than a tag, which is the
+    # right call for an action that is handed a secret, and also the reason
+    # something has to tell us when that pin goes stale.
+    commit-message:
+      prefix: ci
+      include: scope
