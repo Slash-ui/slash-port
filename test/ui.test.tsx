@@ -3,7 +3,7 @@ import { render as inkRender } from 'ink';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { killEntry } from '../src/kill.js';
 import { App } from '../src/ui/App.js';
-import { cell, layout, truncate } from '../src/ui/theme.js';
+import { cell, displayWidth, layout, truncate } from '../src/ui/theme.js';
 import type { KillResult } from '../src/kill.js';
 import type { PortEntry } from '../src/types.js';
 import type { Instance } from 'ink';
@@ -222,6 +222,16 @@ describe('columns and truncation', () => {
     expect(truncate('a-very-long-description', 10)).toBe('a-very-lo…');
     expect(truncate('anything', 1)).toBe('…');
     expect(truncate('anything', 0)).toBe('');
+  });
+
+  test('an emoji is never cut in half', () => {
+    // Slicing by code unit would leave a lone surrogate at the cut.
+    const cut = truncate('🚀🚀🚀🚀', 5);
+    for (const character of cut) {
+      const code = character.codePointAt(0)!;
+      expect(code < 0xd800 || code > 0xdfff).toBe(true);
+    }
+    expect(displayWidth(cut)).toBeLessThanOrEqual(5);
   });
 
   test('cell pads to exactly the requested width', () => {

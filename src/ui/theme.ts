@@ -29,16 +29,100 @@ export function color(role: Role): string | undefined {
 
 const ELLIPSIS = '…';
 
-/** Truncate with an ellipsis, so a cut value is visibly cut rather than a lie. */
+/**
+ * Code points a terminal draws two cells wide: CJK, Hangul, the fullwidth
+ * forms, and emoji. Ranges rather than a table, and deliberately generous at
+ * the edges - over-counting a character costs a space at the end of a row,
+ * where under-counting costs the alignment of every row below it.
+ */
+function isWide(code: number): boolean {
+  return (
+    (code >= 0x1100 && code <= 0x115f) ||
+    (code >= 0x2e80 && code <= 0x303e) ||
+    (code >= 0x3041 && code <= 0x33ff) ||
+    (code >= 0x3400 && code <= 0x4dbf) ||
+    (code >= 0x4e00 && code <= 0x9fff) ||
+    (code >= 0xa000 && code <= 0xa4cf) ||
+    (code >= 0xa960 && code <= 0xa97f) ||
+    (code >= 0xac00 && code <= 0xd7a3) ||
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0xfe10 && code <= 0xfe19) ||
+    (code >= 0xfe30 && code <= 0xfe6f) ||
+    (code >= 0xff00 && code <= 0xff60) ||
+    (code >= 0xffe0 && code <= 0xffe6) ||
+    (code >= 0x17000 && code <= 0x18aff) ||
+    (code >= 0x1b000 && code <= 0x1b2ff) ||
+    (code >= 0x1f300 && code <= 0x1f64f) ||
+    (code >= 0x1f680 && code <= 0x1f6ff) ||
+    (code >= 0x1f900 && code <= 0x1f9ff) ||
+    (code >= 0x1fa70 && code <= 0x1faff) ||
+    (code >= 0x20000 && code <= 0x3fffd)
+  );
+}
+
+/** Combining marks, variation selectors, and skin tones: no cells of their own. */
+function isZeroWidth(code: number): boolean {
+  return (
+    (code >= 0x0300 && code <= 0x036f) ||
+    (code >= 0x0483 && code <= 0x0489) ||
+    (code >= 0x0591 && code <= 0x05bd) ||
+    (code >= 0x0610 && code <= 0x061a) ||
+    (code >= 0x064b && code <= 0x065f) ||
+    (code >= 0x0e31 && code <= 0x0e3a) ||
+    (code >= 0x200b && code <= 0x200f) ||
+    (code >= 0x20d0 && code <= 0x20ff) ||
+    (code >= 0xfe00 && code <= 0xfe2f) ||
+    (code >= 0x1f3fb && code <= 0x1f3ff)
+  );
+}
+
+/**
+ * How many cells a string occupies, which is not how many characters it has.
+ *
+ * Everything in the layout is measured with this rather than with `.length`.
+ * A project directory called `店铺` is four cells and two code units; padding
+ * it by code units puts the row two cells over the terminal width, and a row
+ * one cell too wide wraps and destroys the alignment of every row below it -
+ * the one thing the column arithmetic exists to prevent.
+ */
+export function displayWidth(value: string): number {
+  let width = 0;
+  for (const character of value) {
+    const code = character.codePointAt(0)!;
+    if (isZeroWidth(code)) continue;
+    width += isWide(code) ? 2 : 1;
+  }
+  return width;
+}
+
+/**
+ * Truncate with an ellipsis, so a cut value is visibly cut rather than a lie.
+ * Cuts on code points, never between the halves of a surrogate pair, and
+ * counts cells rather than characters.
+ */
 export function truncate(value: string, width: number): string {
   if (width <= 0) return '';
-  if (value.length <= width) return value;
+  if (displayWidth(value) <= width) return value;
   if (width === 1) return ELLIPSIS;
-  return value.slice(0, width - 1) + ELLIPSIS;
+
+  let taken = '';
+  let used = 0;
+  for (const character of value) {
+    const code = character.codePointAt(0)!;
+    const size = isZeroWidth(code) ? 0 : isWide(code) ? 2 : 1;
+    // One cell is held back for the ellipsis itself.
+    if (used + size > width - 1) break;
+    taken += character;
+    used += size;
+  }
+  return taken + ELLIPSIS;
 }
 
 export function cell(value: string, width: number): string {
-  return truncate(value, width).padEnd(width);
+  const cut = truncate(value, width);
+  // A wide character can leave the cell one cell short of its width, so the
+  // padding is computed from the cells used rather than from the characters.
+  return cut + ' '.repeat(Math.max(0, width - displayWidth(cut)));
 }
 
 export interface Layout {
