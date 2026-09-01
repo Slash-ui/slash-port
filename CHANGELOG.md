@@ -4,6 +4,14 @@ Every release is listed here. Entries are generated from the
 [Conventional Commit](https://www.conventionalcommits.org) messages in each
 release, and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.2.1](https://github.com/Slash-ui/slash-port/releases/tag/v0.2.1) - 2026-09-01
+
+### Bug fixes
+
+- remove the dependency on itself (#12) ([d2a9e33](https://github.com/Slash-ui/slash-port/commit/d2a9e335d60af02b42cf9fad710aebecd6492757))
+
+[Compare with v0.2.0](https://github.com/Slash-ui/slash-port/compare/v0.2.0...v0.2.1)
+
 ## [0.2.0](https://github.com/Slash-ui/slash-port/releases/tag/v0.2.0) — 2026-09-01
 
 ### Features
