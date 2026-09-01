@@ -1,0 +1,8 @@
+# Every file in this repository is owned by the maintainer, so every pull
+# request needs a review from them before it can reach main.
+#
+# This file only *requests* the review. What makes it mandatory is the
+# "Require review from Code Owners" branch protection rule on main, which
+# .github/scripts/setup-repo.sh configures.
+
+* @amin-slashui
