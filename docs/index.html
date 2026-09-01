@@ -17,7 +17,15 @@
       content="See what is listening on your ports, understand what it is, and kill it safely."
     />
     <meta property="og:url" content="https://slash-ui.github.io/slash-port/" />
-    <meta name="twitter:card" content="summary" />
+    <meta
+      property="og:image"
+      content="https://slash-ui.github.io/slash-port/assets/screenshot-beginner.png"
+    />
+    <meta
+      property="og:image:alt"
+      content="slash-port listing forty-two listening ports, each with what it is, where to open it, and whether closing it is a good idea."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
 
     <!-- Inlined as a data URI: no request, and no separate file to keep in sync. -->
     <link
@@ -325,6 +333,28 @@
         color: var(--ink-faint);
       }
 
+      /* ---------- screenshots ---------- */
+
+      .shot {
+        margin: 32px 0 0;
+      }
+
+      .shot img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: var(--radius);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow);
+      }
+
+      .shot figcaption {
+        margin: 12px 0 0;
+        max-width: var(--measure);
+        font-size: 14px;
+        color: var(--ink-faint);
+      }
+
       /* ---------- sections ---------- */
 
       section {
@@ -536,6 +566,18 @@
         gap: 20px;
       }
 
+      .made {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .made img {
+        display: block;
+        width: auto;
+        height: 24px;
+      }
+
       @media (max-width: 620px) {
         nav.site {
           display: none;
@@ -698,6 +740,43 @@
             </p>
           </div>
         </div>
+
+        <figure class="shot">
+          <img
+            src="assets/screenshot-beginner.png"
+            width="1400"
+            height="789"
+            loading="lazy"
+            decoding="async"
+            alt="Beginner mode on a real machine: mailpit and adminer in Docker, five http.server
+              processes on ports 8001 to 8005, Ollama, Figma, Visual Studio Code and macOS Handoff,
+              each row saying where to open it and whether closing it is a good idea, and a panel
+              explaining that port 8001 is a web server that is safe to close."
+          />
+          <figcaption>
+            Beginner mode on a working machine: forty-two listening ports, five
+            <code>http.server</code> processes that nothing but their port tells apart, and a panel
+            saying what port 8001 is, where to open it, and what closing it costs.
+          </figcaption>
+        </figure>
+
+        <figure class="shot">
+          <img
+            src="assets/screenshot-advanced.png"
+            width="1400"
+            height="791"
+            loading="lazy"
+            decoding="async"
+            alt="The same machine in advanced mode: pid, user, process and address for every row,
+              and a panel with the parent process, open connections, uptime, memory, working
+              directory and the full command line."
+          />
+          <figcaption>
+            <kbd>m</kbd> trades the explanations for the facts that tell two identical-looking dev
+            servers apart - pid, user, process and address per row, then uptime, memory, working
+            directory and the full command line for the row under the cursor.
+          </figcaption>
+        </figure>
       </section>
 
       <section id="safety">
@@ -748,6 +827,25 @@
             >
           </li>
         </ul>
+
+        <figure class="shot">
+          <img
+            src="assets/screenshot-close.png"
+            width="1400"
+            height="791"
+            loading="lazy"
+            decoding="async"
+            alt="The confirmation over the list: Close whatever is using port 8002, the process
+              named as Python http.server, pid 11575, user slashui, the verdict that it is yours and
+              as easy to start again as it was to start, and the keys y to close it politely, f to
+              force it, n to leave it alone."
+          />
+          <figcaption>
+            <kbd>x</kbd> asks before anything is signalled, and the question names the process, its
+            pid and its owner. <kbd>y</kbd> closes it politely, <kbd>f</kbd> forces it,
+            <kbd>n</kbd> leaves it alone.
+          </figcaption>
+        </figure>
 
         <div class="note">
           <p>
@@ -865,7 +963,20 @@ slash-port --kill --port 3000:3005 --yes --all</pre>
 
     <footer class="site">
       <div class="wrap">
-        <span>MIT © Amin Shariati</span>
+        <span class="made">
+          <a href="https://github.com/Slash-ui">
+            <picture>
+              <source media="(prefers-color-scheme: dark)" srcset="assets/logo-slashui-dark.svg" />
+              <img
+                src="assets/logo-slashui-light.svg"
+                width="318"
+                height="130"
+                alt="Slash UI"
+              />
+            </picture>
+          </a>
+          MIT © Amin Shariati
+        </span>
         <div class="links">
           <a href="https://github.com/Slash-ui/slash-port">GitHub</a>
           <a href="https://www.npmjs.com/package/slash-port">npm</a>

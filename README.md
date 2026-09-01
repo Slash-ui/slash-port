@@ -1,3 +1,12 @@
+<p align="center">
+  <a href="https://github.com/Slash-ui">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-slashui-dark.svg" />
+      <img src="docs/assets/logo-slashui-light.svg" alt="Slash UI" width="159" height="65" />
+    </picture>
+  </a>
+</p>
+
 # slash-port
 
 <!-- release:badge -->
@@ -161,6 +170,20 @@ at any time, and `d` hides the panel in either.
 | Panel | What kind of thing it is, which project, who started it, whether closing it is a good idea, and how to start it again | Parent process, open connections, uptime, memory, working directory, full command line, and how the description was arrived at |
 | Confirmation | Says what closing it costs and how to undo it | Names the signal |
 | Cost | One scan | One scan, plus a lookup for the row under the cursor |
+
+Both modes on a working machine, where the list is forty-two ports long
+rather than the tidy eight above:
+
+![Beginner mode on a real machine: mailpit and adminer in Docker, five
+http.server processes on 8001 to 8005, Ollama, Figma, Visual Studio Code and
+macOS Handoff, each with where to open it and whether closing it is a good
+idea, and a panel explaining that port 8001 is a web server and safe to
+close](docs/assets/screenshot-beginner.png)
+
+![The same machine in advanced mode: pid, user, process and address for every
+row, and a panel with the parent process, open connections, uptime, memory,
+working directory and the full command
+line](docs/assets/screenshot-advanced.png)
 
 Advanced mode's extra facts are fetched for the selected row only. A machine
 with four hundred listening sockets would otherwise pay four hundred times over
@@ -340,6 +363,16 @@ are fixed rather than configurable:
   having survived. Escalating is a second, deliberate action, never automatic.
 - **A process that has already exited is never signalled**, because by then its
   pid may belong to something else.
+
+The confirmation for a row that is safe to close names the process, says what
+closing it costs, and keeps the polite close and the forced one on separate
+keys:
+
+![The confirmation over the list: Close whatever is using port 8002, the
+process named as Python http.server, pid 11575, user slashui, the verdict that
+it is yours and as easy to start again as it was to start, and the keys y to
+close it politely, f to force it, n to leave it
+alone](docs/assets/screenshot-close.png)
 
 On Windows there is no signal delivery: SIGTERM becomes `TerminateProcess`,
 which a process cannot catch or ignore, so nothing there gets the chance to
