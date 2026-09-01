@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { annotate, imageName, indexPorts, socketCandidates } from '../src/docker.js';
 import {
   advancedFields,
   beginnerBrief,
@@ -8,7 +9,7 @@ import {
   riskWord,
 } from '../src/explain.js';
 import { plainTable, toJson } from '../src/format.js';
-import { DEFAULT_MODE, resolveMode } from '../src/mode.js';
+import { DEFAULT_MODE, resolveDocker, resolveMode } from '../src/mode.js';
 import {
   countLsofEstablished,
   countNetstatEstablished,
@@ -57,6 +58,45 @@ describe('choosing a mode', () => {
   test('an unreadable SLASH_PORT_MODE is ignored rather than fatal', () => {
     // Nobody wants a tool that refuses to list ports over a typo in a dotfile.
     expect(resolveMode(null, { SLASH_PORT_MODE: 'expert' })).toBe('beginner');
+  });
+});
+
+describe('asking Docker about a port', () => {
+  test('is off unless it was asked for', () => {
+    // The claim is that slash-port reads two local tables and stops. Keeping
+    // that true by default is worth more than naming a container by default.
+    expect(resolveDocker(null, {})).toBe(false);
+  });
+
+  test('can be turned on for one run or for good', () => {
+    expect(resolveDocker(true, {})).toBe(true);
+    expect(resolveDocker(null, { SLASH_PORT_DOCKER: '1' })).toBe(true);
+    expect(resolveDocker(null, { SLASH_PORT_DOCKER: 'yes' })).toBe(true);
+    // And a flag still overrules the environment.
+    expect(resolveDocker(false, { SLASH_PORT_DOCKER: '1' })).toBe(false);
+  });
+
+  test('an unreadable SLASH_PORT_DOCKER leaves it off', () => {
+    expect(resolveDocker(null, { SLASH_PORT_DOCKER: 'maybe' })).toBe(false);
+    expect(resolveDocker(null, { SLASH_PORT_DOCKER: 'off' })).toBe(false);
+  });
+
+  test('a container row says the lookup did not run, rather than nothing', () => {
+    // Otherwise the default quietly costs the answer: "Docker Desktop" on 5432
+    // is true, useless, and gives no clue that a flag would fix it.
+    const container = entry({
+      port: 5432,
+      label: 'Docker Desktop',
+      category: 'container',
+      hint: null,
+    });
+    const value = beginnerBrief(container).fields.find((f) => f.label === 'Container')?.value;
+    expect(value).toContain('--docker');
+
+    // And says nothing once the lookup has run and found nothing to say.
+    expect(
+      beginnerBrief(container, { docker: true }).fields.some((f) => f.label === 'Container'),
+    ).toBe(false);
   });
 });
 
@@ -160,6 +200,108 @@ describe('output shapes', () => {
     expect(row!['category']).toBe('web');
     expect(row!['url']).toBe('http://localhost:3000');
     expect(row!['risk']).toBe('safe');
+  });
+});
+
+describe('naming the container behind a port', () => {
+  const containers = [
+    {
+      Names: ['/supabase_db_shop'],
+      Image: 'public.ecr.aws/supabase/postgres:15.8',
+      Labels: { 'com.docker.compose.project': 'shop', 'com.docker.compose.service': 'db' },
+      Ports: [{ PublicPort: 54322, Type: 'tcp' }, { Type: 'tcp' }],
+    },
+    {
+      Names: ['/lonely'],
+      Image: 'redis:7-alpine',
+      Ports: [{ PublicPort: 6379, Type: 'tcp' }],
+    },
+  ];
+
+  test('an image is one word, whatever registry and tag it arrived with', () => {
+    expect(imageName('public.ecr.aws/supabase/postgres:15.8')).toBe('postgres');
+    expect(imageName('redis')).toBe('redis');
+    expect(imageName('ghcr.io/org/api@sha256:abc123')).toBe('api');
+  });
+
+  test('only published ports are indexed, because only those can be matched', () => {
+    const index = indexPorts(containers);
+    expect([...index.keys()].sort((a, b) => a - b)).toEqual([6379, 54322]);
+  });
+
+  test('the image is read like a command line, so postgres:15 is a database', () => {
+    const annotated = annotate(
+      entry({ port: 54322, label: 'Docker Desktop', category: 'container' }),
+      indexPorts(containers).get(54322)!,
+    );
+    expect(annotated.label).toBe('PostgreSQL in Docker');
+    expect(annotated.category).toBe('database');
+    expect(annotated.hint).toBe('shop');
+    expect(annotated.source).toBe('docker');
+    // Killing docker-proxy leaves the container running and the port
+    // unpublished, which is a stranger state than either alternative.
+    expect(annotated.riskReason).toContain('docker stop supabase_db_shop');
+    expect(annotated.restart).toBe('Bring it back with `docker compose up -d db`.');
+    // A database is not a web page, so no URL is offered for it.
+    expect(annotated.url).toBeNull();
+  });
+
+  test('a compose service with no name does not leave a gap in the command', () => {
+    const annotated = annotate(entry({ port: 5432, category: 'container' }), {
+      name: 'db',
+      image: 'postgres:16',
+      project: 'shop',
+      service: null,
+    });
+    expect(annotated.restart).toBe('Bring it back with `docker compose up -d`.');
+  });
+
+  test('a container with no compose project is named by the container', () => {
+    const annotated = annotate(
+      entry({ port: 6379, category: 'container' }),
+      indexPorts(containers).get(6379)!,
+    );
+    expect(annotated.hint).toBe('lonely');
+    expect(annotated.restart).toContain('docker start lonely');
+  });
+
+  test('a compose project that repeats the label gives way to the container name', () => {
+    // A project called `docker` is Docker's own honest answer and still tells
+    // nobody anything.
+    const annotated = annotate(entry({ port: 6379, category: 'container' }), {
+      name: 'gymops-redis',
+      image: 'redis:7',
+      project: 'docker',
+      service: 'redis',
+    });
+    expect(annotated.hint).toBe('gymops-redis');
+    expect(annotated.summary).not.toContain('compose project');
+    // And the way back names the container, since the project name would not
+    // help anyone find the directory to run compose in.
+    expect(annotated.restart).toContain('docker start gymops-redis');
+  });
+
+  test('a Windows named pipe in DOCKER_HOST is understood', () => {
+    // Docker Desktop on Windows sets exactly this, and reading only unix://
+    // turned container naming off on the platform the pipe branch exists for.
+    expect(socketCandidates({ DOCKER_HOST: 'npipe:////./pipe/docker_engine' }, 'win32', 'C:\\')).toEqual(
+      ['\\\\.\\pipe\\docker_engine'],
+    );
+  });
+
+  test('a TCP DOCKER_HOST is another machine, so no socket is offered at all', () => {
+    // slash-port does not make network connections, and answering about the
+    // wrong host would be worse than not answering.
+    expect(socketCandidates({ DOCKER_HOST: 'tcp://10.0.0.5:2375' }, 'linux', '/home/dev')).toEqual([]);
+    expect(socketCandidates({ DOCKER_HOST: 'unix:///tmp/d.sock' }, 'linux', '/home/dev')).toEqual([
+      '/tmp/d.sock',
+    ]);
+  });
+
+  test('the sockets Colima and Rancher use are looked for too', () => {
+    const candidates = socketCandidates({}, 'darwin', '/home/dev');
+    expect(candidates).toContain('/var/run/docker.sock');
+    expect(candidates).toContain('/home/dev/.colima/default/docker.sock');
   });
 });
 

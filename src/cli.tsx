@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { plainTable, toJson } from './format.js';
 import { killEntry } from './kill.js';
-import { isMode, resolveMode } from './mode.js';
+import { isMode, resolveDocker, resolveMode } from './mode.js';
 import { describePortSelector, looksLikePort, matchesPort, parsePortSelector } from './ports.js';
 import { scan } from './scan/index.js';
 import { ScanError } from './types.js';
@@ -33,6 +33,8 @@ interface Options {
   /** `null` means nothing on the command line said, so the environment decides. */
   mode: Mode | null;
   udp: boolean;
+  /** `null` means nothing on the command line said, so the environment decides. */
+  docker: boolean | null;
   json: boolean;
   plain: boolean;
   kill: boolean;
@@ -64,6 +66,7 @@ function parseArgs(argv: readonly string[]): Options {
     port: null,
     mode: null,
     udp: false,
+    docker: null,
     json: false,
     plain: false,
     kill: false,
@@ -113,6 +116,12 @@ function parseArgs(argv: readonly string[]): Options {
       case '-u':
       case '--udp':
         options.udp = true;
+        break;
+      case '--docker':
+        options.docker = true;
+        break;
+      case '--no-docker':
+        options.docker = false;
         break;
       case '--json':
         options.json = true;
@@ -202,6 +211,7 @@ Options
       --advanced       Show the full detail instead of the explanations
       --mode <name>    beginner or advanced. SLASH_PORT_MODE sets the default
   -u, --udp            Include UDP sockets as well as TCP
+      --docker         Ask the local Docker socket which container holds a port
       --json           Print JSON to stdout and exit
       --plain          Print a plain table and exit
       --kill           Kill the process on --port. Requires --yes
@@ -233,8 +243,12 @@ Exit codes
   4  the operation was attempted and failed
 
 slash-port never kills without confirmation; never kills init, sshd, your
-session, or the shell that launched it; sends SIGTERM before SIGKILL; and
-never touches the network.`;
+session, or the shell that launched it; and sends SIGTERM before SIGKILL.
+
+It makes no network connections, and asks nothing else on the machine anything
+either. --docker is the single exception: it reads the local Docker socket - a
+file on this machine - for the name of the container behind a published port.
+SLASH_PORT_DOCKER=1 turns that on for good.`;
 
 function readVersion(): string {
   try {
@@ -300,6 +314,7 @@ async function main(argv: readonly string[]): Promise<number> {
   }
 
   const mode = resolveMode(options.mode);
+  const docker = resolveDocker(options.docker);
 
   if (options.help) {
     process.stdout.write(`${HELP}\n`);
@@ -316,7 +331,7 @@ async function main(argv: readonly string[]): Promise<number> {
 
   let entries: PortEntry[];
   try {
-    entries = await scan({ udp: options.udp });
+    entries = await scan({ udp: options.udp, docker });
   } catch (error) {
     if (error instanceof ScanError) {
       process.stderr.write(`${error.message}\n`);

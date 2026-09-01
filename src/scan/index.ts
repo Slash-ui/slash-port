@@ -1,4 +1,5 @@
 import { assessRisk, browserUrl, describe, elevationReason, guardReason } from '../describe.js';
+import { annotateContainers } from '../docker.js';
 import { ScanError } from '../types.js';
 import type { Family, PortEntry, RawSocket, ScanOptions } from '../types.js';
 import { scanDarwin } from './darwin.js';
@@ -80,19 +81,32 @@ export function sortEntries(entries: PortEntry[]): PortEntry[] {
   );
 }
 
-/** Read the local socket table. Nothing in this path touches the network. */
-export async function scan(options: ScanOptions = {}): Promise<PortEntry[]> {
+async function scanPlatform(options: ScanOptions): Promise<RawSocket[]> {
   switch (process.platform) {
     case 'linux':
-      return collapse(await scanLinux(options));
+      return scanLinux(options);
     case 'darwin':
-      return collapse(await scanDarwin(options));
+      return scanDarwin(options);
     case 'win32':
-      return collapse(await scanWin32(options));
+      return scanWin32(options);
     default:
       throw new ScanError(
         `slash-port has no scanner for ${process.platform}.`,
-        'It reads /proc on Linux, lsof on macOS, and netstat on Windows.',
+        'Supported platforms are Linux, macOS, and Windows.',
       );
   }
+}
+
+/**
+ * Read the local socket table. Nothing in this path touches anything.
+ *
+ * The one thing that could is the container pass, and it only runs when it was
+ * asked for. What it talks to is a unix socket on this machine - the same kind
+ * of local file the scanners read - but "reads two local tables and stops" is
+ * a property worth keeping by default rather than one to opt back into.
+ */
+export async function scan(options: ScanOptions = {}): Promise<PortEntry[]> {
+  const entries = collapse(await scanPlatform(options));
+  if (options.docker !== true) return entries;
+  return annotateContainers(entries);
 }

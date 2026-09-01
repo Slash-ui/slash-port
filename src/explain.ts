@@ -99,16 +99,25 @@ export interface Brief {
   fields: Field[];
 }
 
+export interface ExplainOptions {
+  /** Whether the container lookup ran, so its absence can be explained. */
+  docker?: boolean;
+}
+
 /**
  * What beginner mode puts under the list: what it is, where to look at it, who
  * started it, and whether closing it is a good idea. Everything a person needs
  * to decide, and nothing that only matters once they have decided.
  */
-export function beginnerBrief(entry: PortEntry): Brief {
+export function beginnerBrief(entry: PortEntry, options: ExplainOptions = {}): Brief {
   const fields: Field[] = [];
 
   if (entry.hint && entry.label) {
     fields.push({ label: entry.source === 'docker' ? 'Container' : 'Project', value: entry.hint });
+  } else if (entry.category === 'container' && options.docker !== true) {
+    // Otherwise the default quietly costs the answer: "Docker Desktop" on 5432
+    // is true, useless, and one flag away from naming the container.
+    fields.push({ label: 'Container', value: 'not looked up - re-run with --docker to name it' });
   }
   if (entry.url) fields.push({ label: 'Open', value: entry.url });
   fields.push({ label: 'Started by', value: ownerPhrase(entry) });

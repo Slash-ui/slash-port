@@ -10,7 +10,8 @@ import {
   projectHint,
 } from '../src/describe.js';
 import { parseLsof, parsePs } from '../src/scan/darwin.js';
-import { collapse } from '../src/scan/index.js';
+import { annotateContainers } from '../src/docker.js';
+import { collapse, scan } from '../src/scan/index.js';
 import { decodeAddress, parseProcNet, parseProcNetRows } from '../src/scan/linux.js';
 import { normaliseAddress, splitHostPort } from '../src/scan/shared.js';
 import { parseNetstat, parseTasklist } from '../src/scan/win32.js';
@@ -269,6 +270,25 @@ describe('description heuristics', () => {
     });
     expect(description.label).toBe('Node.js');
     expect(description.hint).toBeNull();
+  });
+});
+
+describe('the container pass', () => {
+  test('does not run unless it was asked for', async () => {
+    // `scan` is the only place in the tool that could talk to anything, so the
+    // default has to be the one where it does not. True on a machine with a
+    // dozen containers and on one with no Docker at all.
+    const entries = await scan({ udp: false });
+    expect(entries.every((entry) => entry.source !== 'docker')).toBe(true);
+  });
+
+  test('leaves every row alone when there is no engine to ask', async () => {
+    const rows = collapse([socket({ port: 5432, processName: 'docker-proxy' })]);
+    const annotated = await annotateContainers(rows, {
+      candidates: ['/nonexistent/slash-port/docker.sock'],
+      timeoutMs: 50,
+    });
+    expect(annotated).toEqual(rows);
   });
 });
 

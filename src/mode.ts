@@ -27,3 +27,23 @@ export function resolveMode(flag: Mode | null, env: NodeJS.ProcessEnv = process.
   if (configured && isMode(configured)) return configured;
   return DEFAULT_MODE;
 }
+
+const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
+const FALSY = new Set(['0', 'false', 'no', 'off']);
+
+/**
+ * Whether to ask the local Docker engine which container publishes a port.
+ *
+ * Off unless asked for. It is the only thing slash-port asks anything, and a
+ * tool whose whole claim is that it reads two local tables and stops should
+ * not quietly start talking to a daemon because a daemon happened to be there.
+ * `--docker` turns it on for one run; `SLASH_PORT_DOCKER=1` turns it on for
+ * good, and `--no-docker` still overrules that.
+ */
+export function resolveDocker(flag: boolean | null, env: NodeJS.ProcessEnv = process.env): boolean {
+  if (flag !== null) return flag;
+  const configured = env['SLASH_PORT_DOCKER']?.trim().toLowerCase();
+  if (configured && TRUTHY.has(configured)) return true;
+  if (configured && FALSY.has(configured)) return false;
+  return false;
+}

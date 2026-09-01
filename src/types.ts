@@ -149,6 +149,13 @@ export interface PortEntry {
 export interface ScanOptions {
   /** Include UDP sockets. Off by default: UDP is noisy and rarely the answer. */
   udp?: boolean;
+  /**
+   * Ask the local Docker engine which container is behind a published port.
+   * Off unless asked for: it is the only thing slash-port asks anything, and
+   * that is a property worth having to opt out of losing rather than opting
+   * back into.
+   */
+  docker?: boolean;
 }
 
 /** A scan failure the user can act on, as opposed to a crash. */
