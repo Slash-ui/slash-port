@@ -8,10 +8,24 @@ import { ScanError } from './types.js';
 import type { PortSelector } from './ports.js';
 import type { PortEntry } from './types.js';
 
-/** 0 success · 1 the action could not be completed · 2 invalid usage. */
+/**
+ * The exit codes every slash-* tool shares, so a script that wraps one can
+ * wrap any of them:
+ *
+ *   0  success
+ *   1  invalid arguments or usage
+ *   2  the thing asked about was not found
+ *   3  refused - a confirmation was missing, or a guardrail tripped
+ *   4  the operation was attempted and failed
+ *
+ * The standard reserves 5 for an integrity failure, which this tool has
+ * nothing to verify and so never returns.
+ */
 const EXIT_OK = 0;
-const EXIT_FAILED = 1;
-const EXIT_USAGE = 2;
+const EXIT_USAGE = 1;
+const EXIT_NOT_FOUND = 2;
+const EXIT_REFUSED = 3;
+const EXIT_FAILED = 4;
 
 interface Options {
   port: PortSelector | null;
@@ -28,7 +42,19 @@ interface Options {
   version: boolean;
 }
 
-class UsageError extends Error {}
+/**
+ * A command line that cannot be run. Most of these are malformed and exit 1,
+ * but a missing confirmation is a refusal rather than a mistake, so the code
+ * travels with the message.
+ */
+class UsageError extends Error {
+  readonly code: number;
+
+  constructor(message: string, code: number = EXIT_USAGE) {
+    super(message);
+    this.code = code;
+  }
+}
 
 function parseArgs(argv: readonly string[]): Options {
   const options: Options = {
@@ -126,12 +152,15 @@ function parseArgs(argv: readonly string[]): Options {
   // confirmed, and no flag combination gets round it.
   if (options.kill) {
     if (options.port === null) throw new UsageError('--kill needs --port, so the target is named.');
-    if (!options.yes) throw new UsageError('--kill needs --yes, so the kill is confirmed.');
+    if (!options.yes) {
+      throw new UsageError('--kill needs --yes, so the kill is confirmed.', EXIT_REFUSED);
+    }
     // Whether a pattern happens to match one port today is not the point: the
     // same command matches more tomorrow, so the plural is confirmed up front.
     if (options.port.kind !== 'exact' && !options.all) {
       throw new UsageError(
         `--kill needs --all to use ${options.port.text}, so killing every match is deliberate.`,
+        EXIT_REFUSED,
       );
     }
   }
@@ -172,8 +201,10 @@ Keys
 
 Exit codes
   0  success
-  1  the requested action could not be completed
-  2  invalid usage
+  1  invalid arguments or usage
+  2  nothing is listening on the ports asked about
+  3  refused: a confirmation was missing, or a guardrail tripped
+  4  the operation was attempted and failed
 
 slash-port never kills without confirmation; never kills init, sshd, your
 session, or the shell that launched it; sends SIGTERM before SIGKILL; and
@@ -203,10 +234,12 @@ async function killFromCli(entries: readonly PortEntry[], options: Options): Pro
 
   if (targets.length === 0) {
     process.stderr.write(`Nothing is listening on ${describePortSelector(selector)}.\n`);
-    return EXIT_FAILED;
+    return EXIT_NOT_FOUND;
   }
 
+  let refusals = 0;
   let failures = 0;
+
   for (const target of targets) {
     const result = await killEntry(target, {
       signal: options.force ? 'SIGKILL' : 'SIGTERM',
@@ -214,10 +247,17 @@ async function killFromCli(entries: readonly PortEntry[], options: Options): Pro
     });
     const ok = result.status === 'terminated' || result.status === 'gone';
     (ok ? process.stdout : process.stderr).write(`${result.message}\n`);
-    if (!ok) failures += 1;
+    if (!ok) {
+      if (result.status === 'refused') refusals += 1;
+      else failures += 1;
+    }
   }
 
-  return failures === 0 ? EXIT_OK : EXIT_FAILED;
+  // A guardrail that stopped a kill is a refusal; a signal that was sent and
+  // did not work is a failure, and outranks it when one command did both.
+  if (failures > 0) return EXIT_FAILED;
+  if (refusals > 0) return EXIT_REFUSED;
+  return EXIT_OK;
 }
 
 async function main(argv: readonly string[]): Promise<number> {
@@ -225,8 +265,12 @@ async function main(argv: readonly string[]): Promise<number> {
   try {
     options = parseArgs(argv);
   } catch (error) {
-    process.stderr.write(`${(error as Error).message}\n\nRun slash-port --help for usage.\n`);
-    return EXIT_USAGE;
+    const code = error instanceof UsageError ? error.code : EXIT_USAGE;
+    process.stderr.write(`${(error as Error).message}\n`);
+    // A refusal names the flag that answers it, so the help pointer would be
+    // noise. A malformed command line is the case that needs pointing.
+    if (code === EXIT_USAGE) process.stderr.write('\nRun slash-port --help for usage.\n');
+    return code;
   }
 
   if (options.help) {
@@ -268,9 +312,9 @@ async function main(argv: readonly string[]): Promise<number> {
     } else {
       process.stdout.write(`${plainTable(selected)}\n`);
     }
-    // Asking about one port is a question with a yes-or-no answer, so an empty
-    // result is a failure. Asking for the whole list is not.
-    return options.port !== null && selected.length === 0 ? EXIT_FAILED : EXIT_OK;
+    // Asking about a port is a question with a yes-or-no answer, so an empty
+    // result means not found. Asking for the whole list is not a question.
+    return options.port !== null && selected.length === 0 ? EXIT_NOT_FOUND : EXIT_OK;
   }
 
   const [{ render }, { App }] = await Promise.all([import('ink'), import('./ui/App.js')]);

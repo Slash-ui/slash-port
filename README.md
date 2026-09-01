@@ -120,16 +120,27 @@ cancels. The kill key is deliberately not next to a navigation key.
 
 ### Exit codes
 
+The same codes across every `slash-*` tool, so a script that wraps one can wrap
+any of them:
+
 | Code | Means |
 | --- | --- |
 | `0` | Success |
-| `1` | The requested action could not be completed |
-| `2` | Invalid usage |
+| `1` | Invalid arguments or usage |
+| `2` | Nothing is listening on the ports asked about |
+| `3` | Refused: a confirmation was missing, or a guardrail tripped |
+| `4` | The operation was attempted and failed |
 
 Asking about a port is a question with a yes-or-no answer, so
-`slash-port --port 3000 --plain` exits `1` when nothing is listening there, and
+`slash-port --port 3000 --plain` exits `2` when nothing is listening there, and
 so does `--port 3xxx` when nothing matches. Listing every port exits `0` even
 when the list is empty.
+
+The distinction between `1` and `3` is whether the command made sense:
+`--kill` with no `--port` did not name a target and exits `1`, while `--kill`
+with a target but no `--yes` named one and did not confirm it, and exits `3`.
+The standard reserves `5` for an integrity failure, which this tool has nothing
+to verify and never returns.
 
 ## Safety
 
