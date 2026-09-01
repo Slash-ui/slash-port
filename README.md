@@ -1,5 +1,6 @@
 # slash-port
 
+<!-- release:badge -->[![github](https://img.shields.io/badge/github-v0.2.0-0f8b7d?logo=github&logoColor=white)](https://github.com/Slash-ui/slash-port/releases/tag/v0.2.0)<!-- /release:badge -->
 [![npm](https://img.shields.io/npm/v/slash-port?logo=npm&logoColor=white&color=0f8b7d)](https://www.npmjs.com/package/slash-port)
 [![downloads](https://img.shields.io/npm/dm/slash-port?color=0f8b7d)](https://www.npmjs.com/package/slash-port)
 [![CI](https://github.com/Slash-ui/slash-port/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Slash-ui/slash-port/actions/workflows/ci.yml)
@@ -280,6 +281,13 @@ workflow reads the types since the last tag to decide between a major, a minor,
 and a patch. Every release is published with npm
 [provenance](https://docs.npmjs.com/generating-provenance-statements), so the
 tarball can be traced to the exact commit and workflow that built it.
+
+One commit does the whole bump: `package.json`, the changelog entry, and the
+version badge at the top of this file are written together, so the three cannot
+name different versions. The badges either side of it are read live - npm and
+the download count from the registry, CI and Release from the Actions API - so
+the `github` badge and the `npm` badge agreeing means the publish landed, and
+them disagreeing means it did not.
 
 See the [changelog](CHANGELOG.md) for what changed when.
 

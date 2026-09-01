@@ -178,7 +178,10 @@ maintainer approves it twice.
 1. **A push to `main`** runs `.github/scripts/next-version.mjs`, which reads the
    Conventional Commits since the last tag and decides the level. If a release
    is warranted, it opens a `chore(release): vX.Y.Z` pull request that bumps
-   `package.json` and writes the changelog entry. Nothing is published.
+   `package.json`, writes the changelog entry, and points the README's version
+   badge at the new tag - `.github/scripts/update-readme.mjs`, which rewrites
+   the `<!-- release:… -->` regions and fails if they have gone missing.
+   Nothing is published.
 2. **Merging that pull request** is the first approval. It leaves `main` with a
    version that has a changelog entry and no tag.
 3. **That state triggers the publish job**, which waits in the `npm-publish`
@@ -194,6 +197,14 @@ You can see what the next release would be, without doing anything:
 
 ```sh
 node .github/scripts/next-version.mjs
+```
+
+And whether the README still names the version in `package.json` - which the
+publish job asserts before it uploads anything, because README.md ships inside
+the tarball and is what npm renders on the package page:
+
+```sh
+node .github/scripts/update-readme.mjs --check
 ```
 
 The branch protection, the environment reviewer, and the Pages source are all
