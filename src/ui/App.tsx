@@ -20,7 +20,7 @@ import type { Field } from '../explain.js';
 import type { ProcessDetail } from '../inspect.js';
 import type { KillOptions, KillResult } from '../kill.js';
 import type { Mode, PortEntry, Risk, ScanOptions } from '../types.js';
-import { cell, color, layout, truncate } from './theme.js';
+import { cell, color, displayWidth, layout, truncate } from './theme.js';
 
 /**
  * Every row the interface spends on something other than the list, and what it
@@ -513,17 +513,79 @@ export function App({
         </Text>
       )}
 
-      {!dialog && (
-        <Text color={color('muted')}>
-          {truncate(
-            beginner
-              ? '↑↓ move · / find · x close it · r refresh · u udp · d details · m advanced · q quit'
-              : '↑↓/jk move · PgUp/PgDn/g/G jump · / filter · x kill · r rescan · u udp · d detail · m beginner · q quit',
-            columnLayout.total,
-          )}
-        </Text>
-      )}
+      {!dialog && <HelpLine mode={mode} width={columnLayout.total} />}
     </Box>
+  );
+}
+
+/**
+ * The keys, kept apart from what they do so the key can be given a colour of
+ * its own. In one colour the line reads as a sentence and the reader has to
+ * pick the keys back out of it, which is the opposite of what a help line is
+ * for.
+ */
+const HELP: Readonly<Record<Mode, readonly (readonly [string, string])[]>> = {
+  beginner: [
+    ['↑↓', 'move'],
+    ['/', 'find'],
+    ['x', 'close it'],
+    ['r', 'refresh'],
+    ['u', 'udp'],
+    ['d', 'details'],
+    ['m', 'advanced'],
+    ['q', 'quit'],
+  ],
+  advanced: [
+    ['↑↓/jk', 'move'],
+    ['PgUp/PgDn/g/G', 'jump'],
+    ['/', 'filter'],
+    ['x', 'kill'],
+    ['r', 'rescan'],
+    ['u', 'udp'],
+    ['d', 'detail'],
+    ['m', 'beginner'],
+    ['q', 'quit'],
+  ],
+};
+
+const HELP_SEPARATOR = ' · ';
+
+/**
+ * Measured in cells and trimmed by dropping whole hints, because half a hint
+ * helps nobody and an ellipsis costs about what a key does.
+ *
+ * `q quit` is kept and the hints before it give way, since the one line a
+ * reader goes looking for is the one that tells them how to get out - and it
+ * is last, which is exactly where trimming from the end would have taken it.
+ *
+ * Always renders, even with nothing left to show: the row is one the height
+ * arithmetic has already paid for, and giving it back would move the list.
+ */
+function HelpLine({ mode, width }: { mode: Mode; width: number }): ReactElement {
+  const hints = HELP[mode];
+  const quit = hints[hints.length - 1]!;
+  const gap = displayWidth(HELP_SEPARATOR);
+  const cost = ([key, label]: readonly [string, string]): number =>
+    displayWidth(key) + 1 + displayWidth(label);
+
+  const shown: (readonly [string, string])[] = [];
+  let used = cost(quit);
+  for (const hint of hints.slice(0, -1)) {
+    if (used + gap + cost(hint) > width) break;
+    shown.push(hint);
+    used += gap + cost(hint);
+  }
+  if (used <= width) shown.push(quit);
+
+  return (
+    <Text color={color('muted')}>
+      {shown.map(([key, label], index) => (
+        <Text key={key}>
+          {index === 0 ? '' : HELP_SEPARATOR}
+          <Text color={color('heading')}>{key}</Text> {label}
+        </Text>
+      ))}
+    </Text>
   );
 }
 
