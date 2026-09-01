@@ -1,0 +1,102 @@
+#!/bin/sh
+#
+# Validate a commit message.
+#
+# Two jobs. The first is enforcing Conventional Commits, which is not a style
+# preference here: the release pipeline reads the type of every commit since
+# the last tag to decide whether the next version is a major, a minor, or a
+# patch. A malformed subject is a version number nobody chose.
+#
+# The second is keeping tooling metadata out of a public history.
+#
+# CI runs this same file against every commit in a pull request and against the
+# pull request title, so the rules live here and only here.
+#
+# Enable with:  git config core.hooksPath .githooks
+# Run directly: .githooks/commit-msg <file-containing-a-message>
+
+set -eu
+
+message_file=${1:-}
+if [ -z "$message_file" ] || [ ! -f "$message_file" ]; then
+	printf 'commit-msg: expected a path to a commit message file.\n' >&2
+	exit 1
+fi
+
+# Drop the comments git adds, and the diff it appends under --verbose.
+body=$(sed -e '/^#/d' -e '/^diff --git /,$d' "$message_file")
+header=$(printf '%s\n' "$body" | sed -n '1p')
+
+types='build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test'
+
+fail() {
+	printf '\n  commit-msg: %s\n\n' "$1" >&2
+	printf '  Got: %s\n\n' "$header" >&2
+	printf '  Expected:  <type>[optional scope][!]: <description>\n' >&2
+	printf '  Types:     build chore ci docs feat fix perf refactor revert style test\n\n' >&2
+	printf '  feat(scan): read UDP sockets on Windows\n' >&2
+	printf '  fix(kill): report EPERM as denied rather than gone\n' >&2
+	printf '  feat(cli)!: rename --plain to --table\n\n' >&2
+	printf '  The type decides the next version: feat is a minor, fix and perf are\n' >&2
+	printf '  a patch, and a trailing ! or a BREAKING CHANGE: footer is a major.\n\n' >&2
+	printf '  To bypass deliberately: git commit --no-verify\n\n' >&2
+	exit 1
+}
+
+# git writes these itself, and they are not ours to reformat.
+case "$header" in
+"Merge "* | "Revert "* | "fixup!"* | "squash!"* | "Reapply "*)
+	exit 0
+	;;
+esac
+
+if [ -z "$(printf '%s' "$body" | tr -d '[:space:]')" ]; then
+	fail 'the message is empty.'
+fi
+
+if ! printf '%s' "$header" \
+	| grep -qE "^($types)(\([a-z0-9][a-z0-9._/-]*(, ?[a-z0-9][a-z0-9._/-]*)*\))?!?: .+"; then
+	fail 'the subject is not a Conventional Commit.'
+fi
+
+if [ "${#header}" -gt 72 ]; then
+	fail "the subject is ${#header} characters; keep it to 72 so it is readable in git log --oneline."
+fi
+
+description=$(printf '%s' "$header" | sed -E "s/^($types)(\([^)]*\))?!?: //")
+
+if [ "${#description}" -lt 5 ]; then
+	fail 'the description is too short to be useful to someone reading git log.'
+fi
+
+case "$description" in
+*.)
+	fail 'the description ends with a full stop; subjects are not sentences.'
+	;;
+esac
+
+# A blank line has to separate the subject from the body, or git tools treat
+# the whole thing as one paragraph — including the parser that reads footers
+# looking for BREAKING CHANGE.
+second_line=$(printf '%s\n' "$body" | sed -n '2p')
+if [ -n "$second_line" ]; then
+	fail 'the subject and body must be separated by a blank line.'
+fi
+
+# Tooling metadata. The line this draws: removing a trailer that advertises
+# which editor or assistant was used is a formatting preference, and is fine.
+# Adding a trailer that credits a person who did not write the change is
+# falsifying authorship, and is not. This only does the first.
+if printf '%s' "$body" | grep -qiE '^[[:space:]]*co-authored-by[[:space:]]*:.*(claude|copilot|cursor|codex|chatgpt|gpt-[0-9]|gemini|devin|aider|windsurf|anthropic)'; then
+	fail 'a co-author trailer names a tool rather than a person.'
+fi
+
+if printf '%s' "$body" | grep -qiE '(generated (with|by)|written by|created (with|by)) .*(claude|copilot|cursor|codex|chatgpt|gpt-[0-9]|gemini|aider|windsurf|ai assistant)'; then
+	fail 'the message contains a generated-with line.'
+fi
+
+if printf '%s' "$body" | grep -qiE '^[[:space:]]*(claude-session|assistant-session|ai-session)[[:space:]]*:'; then
+	fail 'the message contains a tooling session trailer.'
+fi
+
+exit 0

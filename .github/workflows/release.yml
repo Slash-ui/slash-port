@@ -1,0 +1,241 @@
+name: Release
+
+# Versions are chosen by the Conventional Commit types on main, never by hand.
+# The release itself happens in two steps, each of which the maintainer has to
+# approve:
+#
+#   1. A push to main works out the next version and opens a release pull
+#      request that bumps package.json and writes the changelog. Nothing is
+#      published. Merging that pull request is the first approval.
+#   2. The merge lands a version on main that has no tag yet, which is what
+#      triggers the publish job. That job sits in the `npm-publish`
+#      environment, whose required reviewer is the second approval.
+#
+# Neither step can be reached without a review, and the npm token is only ever
+# visible to a job that has already been approved.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      level:
+        description: Force a release level instead of reading the commits
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+
+permissions:
+  contents: read
+
+# Never run two releases at once, and never cancel one halfway: a cancelled
+# publish can leave a tag with no package behind it.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    outputs:
+      # Set when main already carries a version that was never published.
+      publish: ${{ steps.state.outputs.publish }}
+      publish-version: ${{ steps.state.outputs.publish-version }}
+      # Set when the commits since the last tag warrant a new release.
+      should-release: ${{ steps.next.outputs.should-release }}
+      version: ${{ steps.next.outputs.version }}
+      level: ${{ steps.next.outputs.level }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # A version is ready to publish when all three are true: package.json
+      # names it, no tag exists for it, and the changelog documents it. Only a
+      # merged release pull request makes all three true at once, so this is
+      # independent of whether that pull request was squashed, rebased, or
+      # merged with a merge commit.
+      - name: Is there an unpublished version on main?
+        id: state
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          echo "package.json is at $version"
+
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "v$version is already tagged; nothing to publish."
+            echo 'publish=false' >> "$GITHUB_OUTPUT"
+          elif ! node .github/scripts/changelog-section.mjs "$version" >/dev/null 2>&1; then
+            echo "CHANGELOG.md does not document $version; not a release commit."
+            echo 'publish=false' >> "$GITHUB_OUTPUT"
+          else
+            echo "v$version is documented and untagged: ready to publish."
+            echo 'publish=true' >> "$GITHUB_OUTPUT"
+            echo "publish-version=$version" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Work out the next version from the commits
+        id: next
+        if: steps.state.outputs.publish != 'true'
+        run: |
+          set -euo pipefail
+          level='${{ inputs.level }}'
+          if [ -n "$level" ] && [ "$level" != 'auto' ]; then
+            node .github/scripts/next-version.mjs "--level=$level"
+          else
+            node .github/scripts/next-version.mjs
+          fi
+
+      - name: Keep the notes for the release pull request
+        if: steps.next.outputs.should-release == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release-notes.md
+          retention-days: 7
+
+  release-pr:
+    name: release pull request
+    needs: plan
+    if: needs.plan.outputs.publish != 'true' && needs.plan.outputs.should-release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # RELEASE_TOKEN is a fine-grained personal access token with contents and
+      # pull-request write on this repository. It exists because GitHub does not
+      # start workflows for events raised by GITHUB_TOKEN: a release pull
+      # request opened with the default token would sit with its required checks
+      # pending forever. Without the token this still works — the maintainer is
+      # an admin and can merge past pending checks — but CI will not have run on
+      # the release commit until the publish job re-runs it.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+
+      - name: Bump the version and write the changelog
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -B "release/v$VERSION"
+          npm version "$VERSION" --no-git-tag-version
+          node .github/scripts/update-changelog.mjs "$VERSION"
+          git add package.json package-lock.json CHANGELOG.md
+          git commit -m "chore(release): v$VERSION"
+          git push --force origin "release/v$VERSION"
+
+      - name: Open or update the release pull request
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          LEVEL: ${{ needs.plan.outputs.level }}
+        run: |
+          set -euo pipefail
+          # Idempotent, and self-healing if the label is ever deleted.
+          gh label create release --color 0f8b7d \
+            --description 'Automated release pull request' --force >/dev/null 2>&1 || true
+
+          {
+            printf 'Releasing **v%s** (a %s release, chosen from the commits since the last tag).\n\n' "$VERSION" "$LEVEL"
+            cat release-notes.md
+            printf '\n\n---\n\nMerging this publishes v%s to npm, after the `npm-publish` environment review.\n' "$VERSION"
+          } > pr-body.md
+
+          if existing=$(gh pr list --head "release/v$VERSION" --state open --json number --jq '.[0].number') && [ -n "$existing" ]; then
+            gh pr edit "$existing" --title "chore(release): v$VERSION" --body-file pr-body.md
+          else
+            gh pr create \
+              --base main \
+              --head "release/v$VERSION" \
+              --title "chore(release): v$VERSION" \
+              --body-file pr-body.md \
+              --label release
+          fi
+
+  publish:
+    name: publish to npm
+    needs: plan
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+
+    # A protected environment whose required reviewer is the maintainer. The
+    # job does not start, and the npm token is not readable, until it is
+    # approved.
+    environment:
+      name: npm-publish
+      url: https://www.npmjs.com/package/slash-port
+
+    permissions:
+      contents: write # to push the tag and create the release
+      id-token: write # to sign the provenance attestation
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - run: npm ci
+
+      # Re-run everything here rather than trusting that CI passed on this
+      # commit. The tarball is built from this checkout, so this checkout is
+      # what has to be green.
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      - name: Verify the tarball contents
+        run: node .github/scripts/check-pack.mjs
+
+      - name: Tag the release
+        env:
+          VERSION: ${{ needs.plan.outputs.publish-version }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "v$VERSION" -m "v$VERSION"
+          git push origin "v$VERSION"
+
+      - name: Publish to npm
+        # Provenance ties the tarball to this commit and this workflow, so
+        # anyone can verify where it came from.
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.plan.outputs.publish-version }}
+        run: |
+          set -euo pipefail
+          node .github/scripts/changelog-section.mjs "$VERSION" > notes.md
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --notes-file notes.md \
+            --verify-tag
