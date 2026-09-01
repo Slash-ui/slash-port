@@ -325,6 +325,21 @@ describe('columns and truncation', () => {
     }
   }, 20_000);
 
+  test('the way out survives however narrow the terminal gets', async () => {
+    // The help line trims by dropping whole hints, and `q quit` is last - so
+    // trimming from the end would take the one hint a stuck reader is looking
+    // for. It is kept and the hints before it give way instead.
+    for (const mode of ['beginner', 'advanced'] as const) {
+      for (const columns of [200, 100, 80, 60, 40, 24]) {
+        const ui = renderApp(<App mode={mode} initialEntries={sample} scanner={stable} />, {
+          columns,
+        });
+        await tick();
+        expect(ui.frame(), `${mode} at ${columns}`).toContain('q quit');
+      }
+    }
+  });
+
   test('a wide character is measured in cells, not in code units', async () => {
     // A project directory called 店铺 is four cells and two code units. Padding
     // it by code units puts the row two cells over the width, and a row one
