@@ -19,15 +19,60 @@ a good idea. `slash-port` answers all three, then kills the process for you
 after a confirmation that names it.
 
 ```
-slash-port                                                               6/6 tcp
-PORT        PID     USER       PROCESS            DESCRIPTION
-3000/tcp    41822   amin       node               Next.js (shop)
-5173/tcp    41905   amin       node               Vite dev server (admin)
-5432/tcp    612     postgres   postgres           PostgreSQL
-6379/tcp    788     redis      redis-server       Redis
-8080/tcp    39044   amin       docker-proxy       Docker published port
-22/tcp      1       root       sshd               OpenSSH server [protected]
-↑↓/jk move · PgUp/PgDn/g/G jump · / filter · x kill · r rescan · u udp · q quit
+slash-port                                                    8/8 tcp · beginner
+PORT        WHAT IT IS                       OPEN AT                 CLOSE IT?
+22/tcp      OpenSSH server [protected]       -                       No
+3000/tcp    Next.js (shop)                   http://localhost:3000   Yes
+5173/tcp    Vite dev server (admin)          http://localhost:5173   Yes
+5432/tcp    Docker Desktop                   -                       Probably
+6379/tcp    Redis                            -                       Probably
+8025/tcp    Docker Desktop                   http://localhost:8025   Probably
+49470/tcp   Visual Studio Code (Node.js)     -                       Probably
+51061/tcp   macOS Handoff                    -                       Better not
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ Port 3000 · Next.js (shop) - a web server                                    │
+│ Point a browser at it - that is what it is there for.                        │
+│ Project    shop                                                              │
+│ Open       http://localhost:3000                                             │
+│ Started by you (slashui) · node · pid 41822                                  │
+│ Close it   Yes - yours, and as easy to start again as it was to start        │
+│ Afterwards Start it again with your dev command, usually `npm run dev`.      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+↑↓ move · / find · x close it · r refresh · u udp · d details · m advanced · q …
+```
+
+Every row says something the process name does not. The process behind
+`Visual Studio Code` is called `Code Helper`, and the one behind `macOS
+Handoff` is called `rapportd`. Neither name would have told you anything, which
+is the point: when nothing at all can be worked out, the column says `-` rather
+than repeating the process name back at you.
+
+Press `m` for advanced mode, which trades the explanations for the facts that
+tell two identical-looking dev servers apart:
+
+```
+slash-port                                                                        8/8 tcp · advanced
+PORT        PID     USER       PROCESS            ADDRESS           DESCRIPTION
+22/tcp      947     root       sshd               *                 OpenSSH server [protected]
+3000/tcp    41822   slashui    node               *                 Next.js (shop)
+5173/tcp    41905   slashui    node               *                 Vite dev server (admin)
+5432/tcp    39044   slashui    com.docker.backend *                 Docker Desktop
+6379/tcp    788     slashui    redis-server       127.0.0.1         Redis
+8025/tcp    39044   slashui    com.docker.backend *                 Docker Desktop
+49470/tcp   1737    slashui    Code Helper        127.0.0.1         Visual Studio Code (Node.js)
+51061/tcp   694     slashui    rapportd           *                 macOS Handoff
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Process   node · pid 41822 · parent 1204 zsh                                                     │
+│ User      slashui                                                                                │
+│ Listening * · TCP · IPv4                                                                         │
+│ Clients   3 connections open                                                                     │
+│ Running   2h 11m (since 14:02)                                                                   │
+│ Memory    431 MB · 0.4% CPU                                                                      │
+│ Directory /Users/slashui/code/shop                                                               │
+│ Command   node /Users/slashui/code/shop/node_modules/.bin/next dev                               │
+│ Kill      Yes - yours, and as easy to start again as it was to start. Start it again with your … │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+↑↓/jk move · PgUp/PgDn/g/G jump · / filter · x kill · r rescan · u udp · d detail · m beginner · q …
 ```
 
 ## Install
@@ -90,14 +135,75 @@ reading before you take it.
 ## Use
 
 ```sh
-slash-port              # the interactive list
+slash-port              # the interactive list, in beginner mode
+slash-port --advanced   # the same list, with the full detail
 slash-port 3000         # open on port 3000
 slash-port 3xxx         # every port from 3000 to 3999
 slash-port 3000:3005    # every port in that range
 slash-port --plain      # a plain table, for a pipe or a script
 slash-port --json       # the same data as JSON
 slash-port --udp        # include UDP as well as TCP
+slash-port --docker     # name the container behind a published port
 ```
+
+### Beginner and advanced
+
+There are two modes, and **beginner is the default**. The person who does not
+know what took port 3000 is the person who went looking for a tool that would
+tell them; anyone who already knows can say `--advanced` once, or set
+`SLASH_PORT_MODE=advanced` and never say it again. `m` switches between them
+at any time, and `d` hides the panel in either.
+
+| | Beginner | Advanced |
+| --- | --- | --- |
+| Columns | Port, what it is, where to open it, whether to close it | Port, pid, user, process, address, description |
+| Narrow terminals | Keeps the verdict down to forty-two columns; the URL column stands down first, and stands down entirely when no row has one | Drops address, user, process, pid, in that order |
+| Panel | What kind of thing it is, which project, who started it, whether closing it is a good idea, and how to start it again | Parent process, open connections, uptime, memory, working directory, full command line, and how the description was arrived at |
+| Confirmation | Says what closing it costs and how to undo it | Names the signal |
+| Cost | One scan | One scan, plus a lookup for the row under the cursor |
+
+Advanced mode's extra facts are fetched for the selected row only. A machine
+with four hundred listening sockets would otherwise pay four hundred times over
+for facts you are reading one row at a time.
+
+### Docker
+
+A published container port shows as `Docker Desktop`, which is true and no help
+at all - and the beginner panel says so rather than leaving you to wonder where
+the name went:
+
+```
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ Port 5432 · Docker Desktop - a container port                                │
+│ Publishing a port on behalf of a container.                                  │
+│ Container  not looked up - re-run with --docker to name it                   │
+│ Started by you (slashui) · com.docker.backend · pid 39044                    │
+│ Close it   Probably - yours, but something may be relying on it              │
+│ Afterwards Stopping the container that owns the port is the change you prob… │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+`--docker` asks the local engine which container is behind the port. The image
+is read the same way a command line is, so `postgres:16` reports PostgreSQL and
+is treated with the care a database deserves, and the compose project becomes
+the hint - which is how two Supabase stacks on 5432 and 54322 stop being
+interchangeable:
+
+```
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ Port 5432 · PostgreSQL in Docker (shop) - a database                         │
+│ The container shop-db, from the shop compose project, running postgres:16-a… │
+│ Container  shop                                                              │
+│ Started by you (slashui) · com.docker.backend · pid 39044                    │
+│ Close it   Probably - stop the container instead: `docker stop shop-db`      │
+│ Afterwards Bring it back with `docker compose up -d db`.                     │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+It stays off until you ask for it. Reading two local tables and stopping is the
+property this tool is built around, and a nicer default is not worth trading it
+for. `SLASH_PORT_DOCKER=1` turns it on for good if you would rather not type
+it, and `--no-docker` overrules that for one run.
 
 ### Naming ports
 
@@ -140,6 +246,8 @@ There is no flag combination that kills something without naming it first.
 | `x` or `Enter` | Kill the selected port |
 | `r` | Rescan |
 | `u` | Show UDP as well as TCP |
+| `m` | Switch between beginner and advanced |
+| `d` | Show or hide the detail panel |
 | `q` | Quit |
 
 In the confirmation dialog: `y` sends SIGTERM, `f` forces with SIGKILL, `n`
@@ -150,7 +258,11 @@ cancels. The kill key is deliberately not next to a navigation key.
 | Option | Does |
 | --- | --- |
 | `-p`, `--port <ports>` | Only these ports: `3000`, `3xxx`, or `3000:3005` |
+| `--beginner` | Explain each port in plain language. The default |
+| `--advanced` | Show the full detail instead of the explanations |
+| `--mode <name>` | `beginner` or `advanced`. `SLASH_PORT_MODE` sets the default |
 | `-u`, `--udp` | Include UDP sockets |
+| `--docker` | Ask the local Docker socket which container holds a port. Off by default; `SLASH_PORT_DOCKER=1` sets the default |
 | `--json` | Print JSON and exit |
 | `--plain` | Print a plain table and exit |
 | `--kill` | Kill the process on `--port`. Requires `--yes` |
@@ -161,6 +273,19 @@ cancels. The kill key is deliberately not next to a navigation key.
 | `--no-color` | Disable colour. `NO_COLOR` is honoured too |
 | `-h`, `--help` | Show help |
 | `-v`, `--version` | Show the version |
+
+### Output for scripts
+
+`--json` is the stable machine surface. Fields are added over time and never
+repurposed, so a `jq` expression written against an old version keeps working.
+`description` is `null` rather than a copy of `process` when nothing could be
+identified, which is the one thing worth knowing before parsing it: absence is
+reported as absence.
+
+`--plain` keeps the same six columns in both modes and always will, so anything
+already splitting that output keeps working. A mode only ever appends a column
+on the end - what closing it would mean in beginner mode, the full command line
+in advanced.
 
 ### Exit codes
 
@@ -204,6 +329,13 @@ are fixed rather than configurable:
   init process, `sshd` - killing it locks you out of a remote machine - macOS
   and Windows session processes, `slash-port` itself, and the shell that
   launched it.
+- **Whether closing it is a good idea is settled before you decide.** Every row
+  carries a verdict - `Yes`, `Probably`, `Better not`, `No`, `Needs sudo` -
+  worked out from what it is, who owns it, and whether a guardrail already
+  refuses it. The verdict is a word in a column, never a colour alone.
+- **The confirmation is never the thing that gets truncated.** On a terminal
+  too short to show it and the list behind it, the list gives way; a question
+  you cannot read is a question you cannot answer.
 - **SIGTERM before SIGKILL.** A process that ignores SIGTERM is reported as
   having survived. Escalating is a second, deliberate action, never automatic.
 - **A process that has already exited is never signalled**, because by then its
@@ -216,9 +348,17 @@ do the same thing.
 
 ## Privacy
 
-`slash-port` makes no network connections at any point. It reads the local
-socket table and the local process table, and that is all it does. There is no
-telemetry, no update check, and no configuration file.
+`slash-port` makes no network connections at any point. By default it reads
+the local socket table and the local process table, and asks nothing else on
+the machine anything either. There is no telemetry, no update check, and no
+configuration file.
+
+`--docker` is the single exception, and it is off until you ask for it. It
+reads the local Docker socket - a file on this machine, the same as
+`/proc/net/tcp` is - to name the container behind a published port. A
+`DOCKER_HOST` pointing at another machine over TCP is ignored rather than
+connected to. `SLASH_PORT_DOCKER=1` turns it on for good if you would rather
+not type it; `--no-docker` still overrules that for one run.
 
 ## Terminal behaviour
 
@@ -233,19 +373,50 @@ telemetry, no update check, and no configuration file.
 - The list is windowed to the visible rows, so a machine with four hundred
   listening sockets renders a screenful, not four hundred lines.
 - Columns are dropped in order of how little they carry as the window narrows,
-  and values that are cut are marked with an ellipsis.
+  and values that are cut are marked with an ellipsis. Beginner mode keeps all
+  four of its columns down to eighty, because the fourth is the answer.
+- A column that has nothing to show stands down rather than printing a column
+  of dashes: `OPEN AT` appears when the rows on screen have URLs.
 
 ## How it identifies a process
 
-Three sources, in priority order:
+The description column exists to say something the process column did not. So
+the first rule is that it never repeats the process name: when nothing could be
+worked out, it says `-`, because "slash-port has no idea" is a fact and
+`figma_agent` beside `figma_agent` is a column doing nothing.
+
+What it consults, in priority order:
 
 1. **The command line.** Specific frameworks are matched before the runtimes
    that host them, so `node …/vite` reports Vite rather than Node.js.
-2. **The project.** The directory above `node_modules` in the command line, so
-   two Vite servers on 5173 and 5174 can be told apart.
-3. **A well-known port registry**, used only when the process itself could not
-   be identified - mostly other users' processes. Entries that would add
-   nothing are suppressed: "dev server" on port 3000 is not information.
+2. **The container**, if you passed `--docker`. The local engine is asked which
+   container publishes the port, and the image is then read like a command
+   line, so `postgres:16` reports "PostgreSQL in Docker" and is treated with
+   the care a database deserves. The compose project - or the container name
+   when there is no project - becomes the hint, which is how `5432` and `54322`
+   stop being interchangeable. Without the flag a published port reports
+   `Docker Desktop`, and beginner mode says so rather than leaving you to
+   wonder why the name is missing.
+3. **The application.** The bundle or install directory the binary sits in,
+   so `Code Helper` reports Visual Studio Code and `figma_agent` reports Figma.
+   The outermost bundle wins, and a vendor directory beats the bundle inside it.
+4. **The project.** The directory above `node_modules` in the command line, so
+   two Vite servers on 5173 and 5174 can be told apart. A directory that only
+   names a convention - `lib`, `src`, `bin` - is passed over for the script
+   itself, which is why `…/google-cloud-sdk/lib/gcloud.py` reads as `gcloud`.
+5. **A well-known port registry**, for processes that could not be identified
+   at all - mostly other users'. Generic entries are demoted rather than
+   suppressed: "dev server" loses to anything specific, and beats saying
+   nothing.
+6. **The shape of the path.** A binary under `/usr/libexec` is a system service
+   whoever wrote it, which is worth more than its own name repeated back.
+
+Beginner mode adds one more question on top of all that: whether closing it is
+a good idea. That answer folds together what kind of thing it is, whether you
+own it, and whether a guardrail already refuses it - and the last two win,
+because they are facts about this machine rather than guesses about software. A
+Postgres you do not own is `Needs sudo` whatever anyone thinks of closing
+databases.
 
 Per platform:
 
@@ -258,14 +429,22 @@ Per platform:
 - **Windows** uses `netstat -ano` and `tasklist`, which exist on every edition
   and avoid PowerShell's startup cost.
 
+Advanced mode's per-row lookups follow the same rule of asking the cheapest
+thing that can answer: `/proc` on Linux with no subprocess at all, `ps` and
+`lsof` on macOS, and on Windows only what `tasklist` and `netstat` already
+know. Parents, working directories, and start times need WMI or PowerShell
+there, which cost about a second each, so those lines are left out rather than
+paid for. A platform that cannot answer omits the line; it never guesses.
+
 ## Not built yet
 
 Deliberate omissions, listed so you know they are choices rather than
 oversights:
 
-- **Docker awareness.** A published port shows `docker-proxy` rather than the
-  container behind it. Resolving that means talking to the Docker socket, which
-  is a real dependency and belongs behind a flag.
+- **Docker awareness by default.** `--docker` names the container behind a
+  published port, and it stays opt-in. Reading two local tables and stopping is
+  the property this tool is built around, and it is not worth trading for a
+  nicer default.
 - **Process trees.** Killing a dev server sometimes leaves children behind. A
   `--tree` option would signal the whole group.
 - **Watch mode.** The list rescans on `r`, not on a timer.

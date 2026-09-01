@@ -2,11 +2,12 @@
 import { readFileSync } from 'node:fs';
 import { plainTable, toJson } from './format.js';
 import { killEntry } from './kill.js';
+import { isMode, resolveDocker, resolveMode } from './mode.js';
 import { describePortSelector, looksLikePort, matchesPort, parsePortSelector } from './ports.js';
 import { scan } from './scan/index.js';
 import { ScanError } from './types.js';
 import type { PortSelector } from './ports.js';
-import type { PortEntry } from './types.js';
+import type { Mode, PortEntry } from './types.js';
 
 /**
  * The exit codes every slash-* tool shares, so a script that wraps one can
@@ -29,7 +30,11 @@ const EXIT_FAILED = 4;
 
 interface Options {
   port: PortSelector | null;
+  /** `null` means nothing on the command line said, so the environment decides. */
+  mode: Mode | null;
   udp: boolean;
+  /** `null` means nothing on the command line said, so the environment decides. */
+  docker: boolean | null;
   json: boolean;
   plain: boolean;
   kill: boolean;
@@ -59,7 +64,9 @@ class UsageError extends Error {
 function parseArgs(argv: readonly string[]): Options {
   const options: Options = {
     port: null,
+    mode: null,
     udp: false,
+    docker: null,
     json: false,
     plain: false,
     kill: false,
@@ -94,9 +101,27 @@ function parseArgs(argv: readonly string[]): Options {
       case '--port':
         options.port = selector(value(argument, argv[++index]));
         break;
+      case '--beginner':
+        options.mode = 'beginner';
+        break;
+      case '--advanced':
+        options.mode = 'advanced';
+        break;
+      case '--mode': {
+        const raw = value(argument, argv[++index]).toLowerCase();
+        if (!isMode(raw)) throw new UsageError(`${raw} is not a mode. Use beginner or advanced.`);
+        options.mode = raw;
+        break;
+      }
       case '-u':
       case '--udp':
         options.udp = true;
+        break;
+      case '--docker':
+        options.docker = true;
+        break;
+      case '--no-docker':
+        options.docker = false;
         break;
       case '--json':
         options.json = true;
@@ -182,7 +207,11 @@ Ports
 
 Options
   -p, --port <ports>   Only these ports, in any of the forms above
+      --beginner       Explain each port in plain language (the default)
+      --advanced       Show the full detail instead of the explanations
+      --mode <name>    beginner or advanced. SLASH_PORT_MODE sets the default
   -u, --udp            Include UDP sockets as well as TCP
+      --docker         Ask the local Docker socket which container holds a port
       --json           Print JSON to stdout and exit
       --plain          Print a plain table and exit
       --kill           Kill the process on --port. Requires --yes
@@ -198,6 +227,13 @@ Keys
   up/down or j/k  move          /  filter      x or Enter  kill
   PgUp/PgDn       page          r  rescan      u           toggle UDP
   g / G           first / last  q  quit        y/f/n       confirm dialog
+  m  switch mode                d  show or hide the detail panel
+
+Modes
+  Beginner mode is the default. It says what each port is in plain language,
+  where to open it, and whether closing it is a good idea. Advanced mode shows
+  pids, users, bind addresses, command lines, working directories, uptime, and
+  how many connections are open. Press m to switch, or set SLASH_PORT_MODE.
 
 Exit codes
   0  success
@@ -207,8 +243,12 @@ Exit codes
   4  the operation was attempted and failed
 
 slash-port never kills without confirmation; never kills init, sshd, your
-session, or the shell that launched it; sends SIGTERM before SIGKILL; and
-never touches the network.`;
+session, or the shell that launched it; and sends SIGTERM before SIGKILL.
+
+It makes no network connections, and asks nothing else on the machine anything
+either. --docker is the single exception: it reads the local Docker socket - a
+file on this machine - for the name of the container behind a published port.
+SLASH_PORT_DOCKER=1 turns that on for good.`;
 
 function readVersion(): string {
   try {
@@ -273,6 +313,9 @@ async function main(argv: readonly string[]): Promise<number> {
     return code;
   }
 
+  const mode = resolveMode(options.mode);
+  const docker = resolveDocker(options.docker);
+
   if (options.help) {
     process.stdout.write(`${HELP}\n`);
     return EXIT_OK;
@@ -288,7 +331,7 @@ async function main(argv: readonly string[]): Promise<number> {
 
   let entries: PortEntry[];
   try {
-    entries = await scan({ udp: options.udp });
+    entries = await scan({ udp: options.udp, docker });
   } catch (error) {
     if (error instanceof ScanError) {
       process.stderr.write(`${error.message}\n`);
@@ -310,7 +353,7 @@ async function main(argv: readonly string[]): Promise<number> {
     if (options.json) {
       process.stdout.write(`${JSON.stringify(toJson(selected), null, 2)}\n`);
     } else {
-      process.stdout.write(`${plainTable(selected)}\n`);
+      process.stdout.write(`${plainTable(selected, mode)}\n`);
     }
     // Asking about a port is a question with a yes-or-no answer, so an empty
     // result means not found. Asking for the whole list is not a question.
@@ -323,6 +366,8 @@ async function main(argv: readonly string[]): Promise<number> {
       initialEntries={entries}
       initialFilter={options.port === null ? '' : options.port.text}
       udp={options.udp}
+      docker={docker}
+      mode={mode}
     />,
   );
   await instance.waitUntilExit();

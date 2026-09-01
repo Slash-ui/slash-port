@@ -1,8 +1,17 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
-import { describe as describeEntry, elevationReason, guardReason, projectHint } from '../src/describe.js';
+import {
+  applicationName,
+  assessRisk,
+  browserUrl,
+  describe as describeEntry,
+  elevationReason,
+  guardReason,
+  projectHint,
+} from '../src/describe.js';
 import { parseLsof, parsePs } from '../src/scan/darwin.js';
-import { collapse } from '../src/scan/index.js';
+import { annotateContainers } from '../src/docker.js';
+import { collapse, scan } from '../src/scan/index.js';
 import { decodeAddress, parseProcNet, parseProcNetRows } from '../src/scan/linux.js';
 import { normaliseAddress, splitHostPort } from '../src/scan/shared.js';
 import { parseNetstat, parseTasklist } from '../src/scan/win32.js';
@@ -157,6 +166,188 @@ describe('description heuristics', () => {
     ).toBe('Node.js');
   });
 
+  test('never repeats the process name back as the description', () => {
+    // The whole point of the column: `figma_agent` beside `figma_agent` has
+    // told the reader nothing, so it says what it knows or says nothing.
+    const anonymous = describeEntry({
+      command: '/usr/local/bin/weird-daemon --serve',
+      processName: 'weird-daemon',
+      port: 45000,
+      pid: 42,
+    });
+    expect(anonymous.label).toBeNull();
+    expect(anonymous.source).toBe('none');
+  });
+
+  test('names the application a helper process belongs to', () => {
+    expect(applicationName('/Applications/Docker.app/Contents/MacOS/com.docker.backend')).toBe(
+      'Docker',
+    );
+    // The outermost bundle wins, so a nested helper reports the editor.
+    expect(
+      applicationName(
+        '/Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper.app/Contents/MacOS/Code Helper',
+      ),
+    ).toBe('Visual Studio Code');
+    // A vendor directory is more specific than the bundle inside it.
+    expect(
+      applicationName('/Users/me/Library/Application Support/Figma/FigmaAgent.app/Contents/MacOS/figma_agent'),
+    ).toBe('Figma');
+    expect(applicationName('C:\\Program Files\\Rancher Desktop\\rancher.exe')).toBe(
+      'Rancher Desktop',
+    );
+    expect(applicationName('/usr/bin/python3')).toBeNull();
+  });
+
+  test('prefers the application to the runtime hosting it', () => {
+    const description = describeEntry({
+      command:
+        '/Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper.app/Contents/MacOS/Code Helper --type=utility --utility-sub-type=node.mojom.NodeService',
+      processName: 'Code Helper',
+      port: 49470,
+      pid: 42,
+    });
+    expect(description.label).toBe('Visual Studio Code');
+    expect(description.hint).toBe('Node.js');
+    expect(description.source).toBe('application');
+  });
+
+  test('says what a path is when it cannot say what the program is', () => {
+    const description = describeEntry({
+      command: '/usr/libexec/somethingd',
+      processName: 'somethingd',
+      port: 51000,
+      pid: 42,
+    });
+    expect(description.label).toBe('system service');
+    expect(description.category).toBe('system');
+  });
+
+  test('drops a project hint that only repeats the label', () => {
+    // "Ollama (Ollama)" is one fact wearing two hats.
+    const description = describeEntry({
+      command: '/Applications/Ollama.app/Contents/Resources/ollama serve',
+      processName: 'ollama',
+      port: 11434,
+      pid: 42,
+    });
+    expect(description.label).toBe('Ollama');
+    expect(description.hint).toBeNull();
+  });
+
+  test('reads through a directory that only names a convention', () => {
+    // `lib` is not a project. The script is what the reader wanted.
+    expect(projectHint('python3 /Users/me/google-cloud-sdk/lib/gcloud.py compute')).toBe('gcloud');
+    expect(projectHint('node /srv/dist/index.js')).toBeNull();
+  });
+
+  test('reads a project directory that has a space in it', () => {
+    // Read backwards from `node_modules` rather than forwards from a space:
+    // `My Project` is one directory, and `Project` is the wrong answer.
+    expect(projectHint('node /Users/amin/My Project/node_modules/vite/bin/vite.js')).toBe(
+      'My Project',
+    );
+    expect(projectHint('python /home/amin/My Api/server.py')).toBe('My Api');
+  });
+
+  test('reads a Windows path on any platform', () => {
+    // `node:path`'s basename follows the host separator, so a Linux CI leg
+    // would happily agree with the wrong answer here.
+    expect(
+      projectHint('C:\\Users\\amin\\src\\my app\\node_modules\\next\\dist\\bin\\next'),
+    ).toBe('my app');
+  });
+
+  test('a Windows executable is not described as itself', () => {
+    // Stripping separators before the extension turns `node.exe` into
+    // `nodeexe`, which matches nothing - and every Windows row then gets the
+    // duplicated columns the rule exists to prevent.
+    const description = describeEntry({
+      command: 'C:\\Program Files\\nodejs\\node.exe server.js',
+      processName: 'node.exe',
+      port: 45001,
+      pid: 42,
+    });
+    expect(description.label).toBe('Node.js');
+    expect(description.hint).toBeNull();
+  });
+});
+
+describe('the container pass', () => {
+  test('does not run unless it was asked for', async () => {
+    // `scan` is the only place in the tool that could talk to anything, so the
+    // default has to be the one where it does not. True on a machine with a
+    // dozen containers and on one with no Docker at all.
+    const entries = await scan({ udp: false });
+    expect(entries.every((entry) => entry.source !== 'docker')).toBe(true);
+  });
+
+  test('leaves every row alone when there is no engine to ask', async () => {
+    const rows = collapse([socket({ port: 5432, processName: 'docker-proxy' })]);
+    const annotated = await annotateContainers(rows, {
+      candidates: ['/nonexistent/slash-port/docker.sock'],
+      timeoutMs: 50,
+    });
+    expect(annotated).toEqual(rows);
+  });
+});
+
+describe('whether it is safe to close', () => {
+  const base = { guard: null, elevation: null, pid: 42, processName: 'node', command: 'node x.js' };
+
+  test('a guard outranks everything, because it is a fact rather than a guess', () => {
+    const verdict = assessRisk({ ...base, category: 'web', guard: 'the SSH daemon' });
+    expect(verdict.risk).toBe('protected');
+  });
+
+  test('a process you cannot signal is blocked whatever it is', () => {
+    // A Postgres somebody else owns is blocked, whatever anyone thinks of
+    // closing databases.
+    const verdict = assessRisk({ ...base, category: 'database', elevation: 'it belongs to postgres' });
+    expect(verdict.risk).toBe('blocked');
+    expect(verdict.reason).toMatch(/postgres/);
+  });
+
+  test('a dev server is safe and a system service is not', () => {
+    expect(assessRisk({ ...base, category: 'web' }).risk).toBe('safe');
+    expect(assessRisk({ ...base, category: 'database' }).risk).toBe('caution');
+    expect(assessRisk({ ...base, category: 'system' }).risk).toBe('risky');
+  });
+
+  test('a signature can overrule its category', () => {
+    // A cache is a database that is meant to be losable.
+    expect(
+      assessRisk({ ...base, category: 'database', command: '/usr/bin/memcached -p 11211' }).risk,
+    ).toBe('safe');
+  });
+});
+
+describe('where to point a browser', () => {
+  const base = { protocol: 'tcp' as const, addresses: ['*'], label: 'Next.js' };
+
+  test('offers a URL for a web server you can reach from here', () => {
+    expect(browserUrl({ ...base, category: 'web', port: 3000 })).toBe('http://localhost:3000');
+  });
+
+  test('offers nothing for a database, however reachable', () => {
+    expect(browserUrl({ ...base, category: 'database', port: 5432 })).toBeNull();
+  });
+
+  test('lets the port overrule the category, because the port is the evidence', () => {
+    // A container publishing 8080 is HTTP whatever its image is called.
+    expect(browserUrl({ ...base, category: 'container', port: 8080 })).toBe('http://localhost:8080');
+    // And mailpit's SMTP port is not, whatever its web UI on 8025 suggests.
+    expect(browserUrl({ ...base, category: 'container', port: 1025 })).toBeNull();
+  });
+
+  test('offers nothing for a socket bound where this machine cannot reach it', () => {
+    expect(browserUrl({ ...base, category: 'web', port: 3000, addresses: ['192.168.1.9'] })).toBeNull();
+  });
+
+  test('offers nothing over UDP, which no browser speaks', () => {
+    expect(browserUrl({ ...base, category: 'web', port: 3000, protocol: 'udp' })).toBeNull();
+  });
+
   test('names the project so two dev servers can be told apart', () => {
     expect(projectHint('node /home/dev/shop/node_modules/.bin/vite')).toBe('shop');
     expect(projectHint('node /home/dev/admin/node_modules/.bin/vite')).toBe('admin');
@@ -170,10 +361,21 @@ describe('description heuristics', () => {
     ).toBe('PostgreSQL');
   });
 
-  test('suppresses registry entries that would add nothing', () => {
-    // "dev server" on 3000 tells a developer precisely what they already knew.
-    const description = describeEntry({ command: null, processName: null, port: 3000, pid: null });
-    expect(description.label).toBe('owner not visible');
+  test('demotes a generic registry entry rather than leading with it', () => {
+    // "dev server" on 3000 tells a developer nothing they did not know, so it
+    // loses to anything specific - but it beats saying nothing at all, and the
+    // source records that it came from the port and not from the process.
+    const specific = describeEntry({
+      command: '/Applications/Thing.app/Contents/MacOS/helper',
+      processName: 'helper',
+      port: 3000,
+      pid: 42,
+    });
+    expect(specific.label).toBe('Thing');
+
+    const nothing = describeEntry({ command: null, processName: null, port: 3000, pid: null });
+    expect(nothing.label).toBe('dev server');
+    expect(nothing.source).toBe('registry');
   });
 });
 

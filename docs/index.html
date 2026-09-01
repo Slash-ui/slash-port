@@ -626,20 +626,24 @@
           <div class="bar">
             <i></i><i></i><i></i><span>~/code - slash-port</span>
           </div>
-          <pre aria-label="slash-port running in a terminal"><span class="t-head">slash-port</span>                                                               <span class="t-dim">6/6 tcp</span>
-<span class="t-dim">PORT        PID     USER       PROCESS            DESCRIPTION</span>
-<span class="t-sel">3000/tcp    41822   amin       node               Next.js (shop)                    </span>
-5173/tcp    41905   amin       node               <span class="t-desc">Vite dev server (admin)</span>
-5432/tcp    612     postgres   postgres           <span class="t-desc">PostgreSQL</span>
-6379/tcp    788     redis      redis-server       <span class="t-desc">Redis</span>
-8080/tcp    39044   amin       docker-proxy       <span class="t-desc">Docker published port</span>
-<span class="t-warn">22/tcp      1       root       sshd               OpenSSH server [protected]</span>
-<span class="t-dim">↑↓/jk move · PgUp/PgDn/g/G jump · / filter · x kill · r rescan · u udp · q quit</span></pre>
+          <pre aria-label="slash-port running in a terminal"><span class="t-head">slash-port</span>                                                    <span class="t-dim">8/8 tcp · beginner</span>
+<span class="t-dim">PORT        WHAT IT IS                       OPEN AT                 CLOSE IT?</span>
+<span class="t-warn">22/tcp      OpenSSH server [protected]       -                       No</span>
+<span class="t-sel">3000/tcp    Next.js (shop)                   http://localhost:3000   Yes       </span>
+5173/tcp    <span class="t-desc">Vite dev server (admin)</span>          http://localhost:5173   Yes
+5432/tcp    <span class="t-desc">Docker Desktop</span>                   -                       Probably
+6379/tcp    <span class="t-desc">Redis</span>                            -                       Probably
+8025/tcp    <span class="t-desc">Docker Desktop</span>                   http://localhost:8025   Probably
+49470/tcp   <span class="t-desc">Visual Studio Code (Node.js)</span>     -                       Probably
+51061/tcp   <span class="t-desc">macOS Handoff</span>                    -                       Better not
+<span class="t-dim">↑↓ move · / find · x close it · r refresh · u udp · d details · m advanced · q quit</span></pre>
         </div>
         <p class="caption">
-          Press <kbd>x</kbd> on a row and it asks before it signals anything. The
-          <span class="t-warn">protected</span> row is refused outright - there is no confirmation
-          that lets you kill <code>sshd</code>.
+          Beginner mode is the default: every row says what the thing is, where to open it,
+          and whether closing it is a good idea. Press <kbd>m</kbd> for pids, command lines
+          and uptime. Press <kbd>x</kbd> and it asks before it signals anything - the
+          <span class="t-warn">protected</span> row is refused outright, because there is no
+          confirmation that lets you kill <code>sshd</code>.
         </p>
       </div>
 
@@ -661,7 +665,8 @@
             <p>
               Frameworks are matched before the runtimes that host them, so
               <code>node …/vite</code> reports <em>Vite dev server</em>, not <em>Node.js</em>. Around
-              ninety signatures, from Next.js and Django to Postgres and docker-proxy.
+              ninety signatures, from Next.js and Django to Postgres and docker-proxy - and when
+              none of them fit, it says so rather than repeating the process name back at you.
             </p>
           </div>
 
@@ -673,9 +678,10 @@
             </div>
             <h3>Which project it belongs to</h3>
             <p>
-              The directory above <code>node_modules</code> in the command line. Two Vite servers on
-              5173 and 5174 stop being interchangeable, which is exactly the moment you need to tell
-              them apart.
+              The directory above <code>node_modules</code> in the command line - or, with
+              <code>--docker</code>, the compose project Docker names it by. Two Vite servers on
+              5173 and 5174 stop being interchangeable, and so do two Postgres containers on 5432
+              and 54322 - which is exactly the moment you need to tell them apart.
             </p>
           </div>
 
@@ -735,8 +741,10 @@
           <li>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>
             <span
-              ><b>No network access, at any point.</b> It reads the local socket table and the local
-              process table. No telemetry, no update check, no config file.</span
+              ><b>No network access, at any point.</b> By default it reads the local socket table
+              and the local process table, and asks nothing else on the machine anything either.
+              <code>--docker</code> is the one exception, off until you ask for it, and what it
+              reads is a socket on this machine. No telemetry, no update check, no config file.</span
             >
           </li>
         </ul>
