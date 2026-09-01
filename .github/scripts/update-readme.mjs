@@ -19,6 +19,11 @@
  * no-op: a release whose badge quietly did not update is exactly the failure
  * this exists to prevent.
  *
+ * Where a marker sits on the line matters, which is not obvious and is checked
+ * below. A comment that opens a line opens an HTML block, and an HTML block
+ * runs to the line that closes it - so `<!-- release:badge -->[![github]…`
+ * renders as the literal text of the link rather than as the badge.
+ *
  * Usage:
  *   node .github/scripts/update-readme.mjs [version] [--check] [--file=README.md]
  *
@@ -60,17 +65,23 @@ const ACCENT = '0f8b7d';
 const BLOCKS = {
   // Links to the tag rather than to the releases list: a badge that names a
   // version should take you to that version.
-  badge: () =>
-    `[![github](https://img.shields.io/badge/github-v${version}-${ACCENT}?logo=github&logoColor=white)]` +
-    `(https://github.com/${repository}/releases/tag/v${version})`,
-  // For prose that has to name the version in the middle of a sentence.
-  version: () => version,
+  badge: {
+    // Given a line of its own the opening comment is its own HTML block, and
+    // the badge below it joins the paragraph the rest of the badge row makes.
+    ownLine: true,
+    render: () =>
+      `[![github](https://img.shields.io/badge/github-v${version}-${ACCENT}?logo=github&logoColor=white)]` +
+      `(https://github.com/${repository}/releases/tag/v${version})`,
+  },
+  // For prose that has to name the version in the middle of a sentence, so the
+  // marker stays inline and the line goes on beginning with words.
+  version: { ownLine: false, render: () => version },
 };
 
 const original = readFileSync(file, 'utf8');
 let updated = original;
 
-for (const [block, render] of Object.entries(BLOCKS)) {
+for (const [block, { ownLine, render }] of Object.entries(BLOCKS)) {
   const open = `<!-- release:${block} -->`;
   const close = `<!-- /release:${block} -->`;
   const region = new RegExp(`${open}[\\s\\S]*?${close}`);
@@ -81,7 +92,21 @@ for (const [block, render] of Object.entries(BLOCKS)) {
     process.exit(1);
   }
 
-  updated = updated.replace(region, `${open}${render()}${close}`);
+  updated = updated.replace(region, `${open}${ownLine ? '\n' : ''}${render()}${close}`);
+
+  // Whether the marker opens a line is the difference between a badge and the
+  // text of a badge, and the difference is invisible until the file is
+  // rendered. The block says which it wants; this is where the surrounding
+  // prose is held to it.
+  const opensLine = new RegExp(`(^|\\n)${open}`).test(updated);
+  if (opensLine !== ownLine) {
+    console.error(
+      ownLine
+        ? `${open} has to start its own line, or GitHub renders the block after it as text.`
+        : `${open} has to stay inline, or the sentence around it is split in three.`,
+    );
+    process.exit(1);
+  }
 }
 
 if (updated === original) {
