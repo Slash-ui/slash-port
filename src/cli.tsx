@@ -2,11 +2,12 @@
 import { readFileSync } from 'node:fs';
 import { plainTable, toJson } from './format.js';
 import { killEntry } from './kill.js';
+import { isMode, resolveMode } from './mode.js';
 import { describePortSelector, looksLikePort, matchesPort, parsePortSelector } from './ports.js';
 import { scan } from './scan/index.js';
 import { ScanError } from './types.js';
 import type { PortSelector } from './ports.js';
-import type { PortEntry } from './types.js';
+import type { Mode, PortEntry } from './types.js';
 
 /**
  * The exit codes every slash-* tool shares, so a script that wraps one can
@@ -29,6 +30,8 @@ const EXIT_FAILED = 4;
 
 interface Options {
   port: PortSelector | null;
+  /** `null` means nothing on the command line said, so the environment decides. */
+  mode: Mode | null;
   udp: boolean;
   json: boolean;
   plain: boolean;
@@ -59,6 +62,7 @@ class UsageError extends Error {
 function parseArgs(argv: readonly string[]): Options {
   const options: Options = {
     port: null,
+    mode: null,
     udp: false,
     json: false,
     plain: false,
@@ -94,6 +98,18 @@ function parseArgs(argv: readonly string[]): Options {
       case '--port':
         options.port = selector(value(argument, argv[++index]));
         break;
+      case '--beginner':
+        options.mode = 'beginner';
+        break;
+      case '--advanced':
+        options.mode = 'advanced';
+        break;
+      case '--mode': {
+        const raw = value(argument, argv[++index]).toLowerCase();
+        if (!isMode(raw)) throw new UsageError(`${raw} is not a mode. Use beginner or advanced.`);
+        options.mode = raw;
+        break;
+      }
       case '-u':
       case '--udp':
         options.udp = true;
@@ -182,6 +198,9 @@ Ports
 
 Options
   -p, --port <ports>   Only these ports, in any of the forms above
+      --beginner       Explain each port in plain language (the default)
+      --advanced       Show the full detail instead of the explanations
+      --mode <name>    beginner or advanced. SLASH_PORT_MODE sets the default
   -u, --udp            Include UDP sockets as well as TCP
       --json           Print JSON to stdout and exit
       --plain          Print a plain table and exit
@@ -198,6 +217,13 @@ Keys
   up/down or j/k  move          /  filter      x or Enter  kill
   PgUp/PgDn       page          r  rescan      u           toggle UDP
   g / G           first / last  q  quit        y/f/n       confirm dialog
+  m  switch mode                d  show or hide the detail panel
+
+Modes
+  Beginner mode is the default. It says what each port is in plain language,
+  where to open it, and whether closing it is a good idea. Advanced mode shows
+  pids, users, bind addresses, command lines, working directories, uptime, and
+  how many connections are open. Press m to switch, or set SLASH_PORT_MODE.
 
 Exit codes
   0  success
@@ -273,6 +299,8 @@ async function main(argv: readonly string[]): Promise<number> {
     return code;
   }
 
+  const mode = resolveMode(options.mode);
+
   if (options.help) {
     process.stdout.write(`${HELP}\n`);
     return EXIT_OK;
@@ -310,7 +338,7 @@ async function main(argv: readonly string[]): Promise<number> {
     if (options.json) {
       process.stdout.write(`${JSON.stringify(toJson(selected), null, 2)}\n`);
     } else {
-      process.stdout.write(`${plainTable(selected)}\n`);
+      process.stdout.write(`${plainTable(selected, mode)}\n`);
     }
     // Asking about a port is a question with a yes-or-no answer, so an empty
     // result means not found. Asking for the whole list is not a question.

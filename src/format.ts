@@ -1,5 +1,6 @@
+import { riskSentence } from './explain.js';
 import { matchesPort, tryPortSelector } from './ports.js';
-import type { PortEntry } from './types.js';
+import type { Mode, PortEntry } from './types.js';
 
 /** Shown wherever a value is genuinely absent, rather than an empty column. */
 export const ABSENT = '-';
@@ -73,9 +74,18 @@ export function matchesFilter(entry: PortEntry, filter: string): boolean {
  * The plain-text table used whenever output is not a terminal. Aligned to the
  * widest value in each column and containing no control codes at all, so it
  * survives a pipe, a redirect, and a `grep`.
+ *
+ * The first six columns are the same in both modes and always will be: a
+ * script that already splits this output keeps working. Mode only ever adds a
+ * column on the end - what closing it would mean for a beginner, the command
+ * line for everybody else - because appending is the one change to a table
+ * that cannot break a reader of it.
  */
-export function plainTable(entries: readonly PortEntry[]): string {
+export function plainTable(entries: readonly PortEntry[], mode: Mode = 'beginner'): string {
+  const beginner = mode === 'beginner';
   const header = ['PORT', 'PID', 'USER', 'PROCESS', 'ADDRESS', 'DESCRIPTION'];
+  header.push(beginner ? 'CAN I CLOSE IT?' : 'COMMAND');
+
   const rows = entries.map((entry) => [
     formatPort(entry),
     formatPid(entry),
@@ -83,6 +93,7 @@ export function plainTable(entries: readonly PortEntry[]): string {
     formatProcess(entry),
     formatAddresses(entry),
     formatDescription(entry),
+    beginner ? riskSentence(entry) : (entry.command ?? ABSENT),
   ]);
 
   const widths = header.map((label, column) =>
@@ -99,9 +110,9 @@ export function plainTable(entries: readonly PortEntry[]): string {
 }
 
 /**
- * The `--json` shape. Stable, and a superset of what the table shows. Fields
- * are added over time and never repurposed, so `jq` on an old field keeps
- * working.
+ * The `--json` shape: a superset of every mode, because a program reading this
+ * has no mode. Fields are added over time and never repurposed, so `jq` on an
+ * old field keeps working.
  *
  * `description` is null rather than a repeat of `process` when nothing could be
  * identified, which is the one thing here that a reader has to know: absence is
