@@ -121,6 +121,11 @@ are fixed rather than configurable:
 - **A process that has already exited is never signalled**, because by then its
   pid may belong to something else.
 
+On Windows there is no signal delivery: SIGTERM becomes `TerminateProcess`,
+which a process cannot catch or ignore, so nothing there gets the chance to
+shut down cleanly. The confirmation still applies — but "terminate" and "force"
+do the same thing.
+
 ## Privacy
 
 `slash-port` makes no network connections at any point. It reads the local
