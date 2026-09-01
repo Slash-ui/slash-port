@@ -93,7 +93,7 @@ jobs:
 
       - name: Keep the notes for the release pull request
         if: steps.next.outputs.should-release == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-notes
           path: release-notes.md
