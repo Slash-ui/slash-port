@@ -1,0 +1,13 @@
+# Line endings are normalised to LF in the repository and on checkout.
+#
+# This is not a style preference. The scanners split their input on \n and the
+# captured /proc tables in test/fixtures are read byte for byte, so a CRLF
+# checkout on Windows would make the parsers, the fixtures, and CI disagree
+# about what a fixture says. The git hooks are shell scripts, and those do not
+# run at all with CRLF line endings.
+* text=auto eol=lf
+
+# Never rewritten, whatever the content detection decides.
+*.png binary
+*.gif binary
+*.ico binary

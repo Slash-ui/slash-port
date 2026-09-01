@@ -3,8 +3,12 @@
 !.env.example
 *.pem
 *.key
+*.crt
+*.cer
+*.der
 *.p12
 *.pfx
+*.ppk
 *.jks
 *.keystore
 id_rsa*
@@ -13,10 +17,17 @@ id_ecdsa*
 .npmrc
 .netrc
 .pgpass
+.pypirc
+credentials
 credentials.json
 service-account*.json
+*serviceaccount*.json
+gha-creds-*.json
 *.credentials
 secrets.json
+secrets/
+*.secret
+*.secrets.*
 .aws/
 .ssh/
 .gnupg/
@@ -45,6 +56,7 @@ coverage/
 *.swo
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Local agent and assistant configuration. 
 .claude/
