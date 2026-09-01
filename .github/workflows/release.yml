@@ -199,6 +199,19 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
 
+      # Checked before anything is built, so a missing token costs seconds
+      # rather than a full test matrix and an approval.
+      - name: Check the npm token is present
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo '::error::NPM_TOKEN is not set on the npm-publish environment.'
+            echo 'Set it with: gh secret set NPM_TOKEN --repo Slash-ui/slash-port --env npm-publish'
+            exit 1
+          fi
+          echo 'NPM_TOKEN is present.'
+
       - run: npm ci
 
       # Re-run everything here rather than trusting that CI passed on this
@@ -211,6 +224,19 @@ jobs:
       - name: Verify the tarball contents
         run: node .github/scripts/check-pack.mjs
 
+      # Publishing comes before tagging, deliberately. npm is the step that can
+      # fail for reasons outside this repository — a missing or expired token,
+      # a registry outage, a name already taken — and a tag pushed before it
+      # would leave v$VERSION pointing at a release that does not exist. A
+      # failed publish now leaves the repository exactly as it was, so the job
+      # can simply be re-run.
+      - name: Publish to npm
+        # Provenance ties the tarball to this commit and this workflow, so
+        # anyone can verify where it came from.
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Tag the release
         env:
           VERSION: ${{ needs.plan.outputs.publish-version }}
@@ -220,13 +246,6 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git tag -a "v$VERSION" -m "v$VERSION"
           git push origin "v$VERSION"
-
-      - name: Publish to npm
-        # Provenance ties the tarball to this commit and this workflow, so
-        # anyone can verify where it came from.
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create the GitHub release
         env:
