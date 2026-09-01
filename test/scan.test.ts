@@ -196,6 +196,18 @@ describe('protection rules', () => {
     expect(guardReason({ pid: 700, processName: 'LSASS.EXE' })).toMatch(/security subsystem/);
   });
 
+  test('refuses the system services a desktop session is built on', () => {
+    expect(guardReason({ pid: 800, processName: 'dbus-daemon' })).toMatch(/D-Bus/);
+    expect(guardReason({ pid: 801, processName: 'systemd-logind' })).toMatch(/every session/);
+  });
+
+  // /proc/[pid]/comm is capped at fifteen characters, so this daemon arrives
+  // as `systemd-resolve` on the platform it actually runs on.
+  test('refuses the systemd resolver under both of its names', () => {
+    expect(guardReason({ pid: 802, processName: 'systemd-resolve' })).toMatch(/DNS/);
+    expect(guardReason({ pid: 802, processName: 'systemd-resolved' })).toMatch(/DNS/);
+  });
+
   test('allows an ordinary dev server', () => {
     expect(guardReason({ pid: 4321, processName: 'node' }, { self: 5, parent: 6 })).toBeNull();
   });

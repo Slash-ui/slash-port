@@ -264,6 +264,12 @@ const PROTECTED_NAMES: Readonly<Record<string, string>> = {
   kernel_task: 'the kernel',
   sshd: 'the SSH daemon - killing it locks you out of a remote machine',
   'ssh-agent': 'the SSH agent',
+  'dbus-daemon': 'the D-Bus message bus - the desktop session is built on it',
+  // `/proc/[pid]/comm` is capped at fifteen characters, so the resolver
+  // arrives with its last letter missing. Both spellings are the same daemon.
+  'systemd-resolve': 'the systemd DNS resolver - killing it takes DNS down for everything',
+  'systemd-resolved': 'the systemd DNS resolver - killing it takes DNS down for everything',
+  'systemd-logind': 'the systemd login manager - killing it ends every session on the machine',
   loginwindow: 'the macOS session',
   windowserver: 'the macOS window server',
   systemuiserver: 'the macOS session',
