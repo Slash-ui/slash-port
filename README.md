@@ -1,6 +1,6 @@
 # slash-port
 
-<!-- release:badge -->[![github](https://img.shields.io/badge/github-v0.2.0-0f8b7d?logo=github&logoColor=white)](https://github.com/Slash-ui/slash-port/releases/tag/v0.2.0)<!-- /release:badge -->
+<!-- release:badge -->[![github](https://img.shields.io/badge/github-v0.2.1-0f8b7d?logo=github&logoColor=white)](https://github.com/Slash-ui/slash-port/releases/tag/v0.2.1)<!-- /release:badge -->
 [![npm](https://img.shields.io/npm/v/slash-port?logo=npm&logoColor=white&color=0f8b7d)](https://www.npmjs.com/package/slash-port)
 [![downloads](https://img.shields.io/npm/dm/slash-port?color=0f8b7d)](https://www.npmjs.com/package/slash-port)
 [![CI](https://github.com/Slash-ui/slash-port/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Slash-ui/slash-port/actions/workflows/ci.yml)
@@ -47,7 +47,7 @@ Requires Node 22 or newer. Works on Linux, macOS, and Windows.
 ### Updating
 
 The current release is
-<!-- release:version -->0.2.0<!-- /release:version -->. To see what you have,
+<!-- release:version -->0.2.1<!-- /release:version -->. To see what you have,
 and what is published:
 
 ```sh
