@@ -4,6 +4,18 @@ Every release is listed here. Entries are generated from the
 [Conventional Commit](https://www.conventionalcommits.org) messages in each
 release, and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.4.0](https://github.com/Slash-ui/slash-port/releases/tag/v0.4.0) - 2026-09-01
+
+### Features
+
+- **ui:** colour the keys in the help line (#19) ([f1d7c28](https://github.com/Slash-ui/slash-port/commit/f1d7c28f3a5c7e522ec5951da4503d12074abf2e))
+
+### Bug fixes
+
+- **docs:** stop the release markers from swallowing what they wrap (#20) ([f5ee0ca](https://github.com/Slash-ui/slash-port/commit/f5ee0ca2c1a28fd422fc5a6c56bb09d4746b80e1))
+
+[Compare with v0.3.0](https://github.com/Slash-ui/slash-port/compare/v0.3.0...v0.4.0)
+
 ## [0.3.0](https://github.com/Slash-ui/slash-port/releases/tag/v0.3.0) - 2026-09-01
 
 ### Features
