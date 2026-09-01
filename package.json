@@ -1,6 +1,6 @@
 {
   "name": "slash-port",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "See what is listening on your ports, understand what it is, and kill it safely.",
   "keywords": [
     "port",
