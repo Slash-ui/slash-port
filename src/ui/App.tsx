@@ -1,8 +1,8 @@
 import { Box, Text, useApp, useInput, useStdout } from 'ink';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
+import { elevationRemedy } from '../describe.js';
 import {
-  elevationRemedy,
   formatAddresses,
   formatDescription,
   formatPid,

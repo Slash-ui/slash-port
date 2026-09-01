@@ -1,5 +1,4 @@
-import { guardReason } from './describe.js';
-import { elevationRemedy } from './format.js';
+import { elevationRemedy, guardReason } from './describe.js';
 import type { PortEntry } from './types.js';
 
 export type KillStatus =
@@ -62,7 +61,7 @@ export function probe(pid: number, kill: NonNullable<KillDeps['kill']> = process
 }
 
 function describeTarget(entry: PortEntry): string {
-  const name = entry.processName ?? entry.label;
+  const name = entry.processName ?? entry.label ?? 'the process';
   return `${name} (pid ${entry.pid}) on port ${entry.port}`;
 }
 

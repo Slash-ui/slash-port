@@ -1,4 +1,4 @@
-import { describe, elevationReason, guardReason } from '../describe.js';
+import { assessRisk, browserUrl, describe, elevationReason, guardReason } from '../describe.js';
 import { ScanError } from '../types.js';
 import type { Family, PortEntry, RawSocket, ScanOptions } from '../types.js';
 import { scanDarwin } from './darwin.js';
@@ -54,13 +54,20 @@ export function collapse(sockets: readonly RawSocket[]): PortEntry[] {
     };
 
     const description = describe(base);
+    const guard = guardReason(base);
+    const elevation = elevationReason(base);
+
+    // Risk needs the guard and the elevation, and the URL needs the addresses,
+    // so both are settled here rather than inside `describe`, which only ever
+    // sees one socket's worth of the picture.
+    const shape = { ...base, ...description, guard, elevation };
+    const verdict = assessRisk(shape);
 
     entries.push({
-      ...base,
-      label: description.label,
-      hint: description.hint,
-      guard: guardReason(base),
-      elevation: elevationReason(base),
+      ...shape,
+      url: browserUrl(shape),
+      risk: verdict.risk,
+      riskReason: verdict.reason,
     });
   }
 
@@ -85,7 +92,7 @@ export async function scan(options: ScanOptions = {}): Promise<PortEntry[]> {
     default:
       throw new ScanError(
         `slash-port has no scanner for ${process.platform}.`,
-        'Supported platforms are Linux, macOS, and Windows.',
+        'It reads /proc on Linux, lsof on macOS, and netstat on Windows.',
       );
   }
 }

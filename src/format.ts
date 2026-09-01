@@ -28,22 +28,17 @@ export function formatAddresses(entry: PortEntry): string {
  * The description column: what it is, which project, and whether you can do
  * anything about it. A guarded row is never also marked `[locked]` - it is
  * refused whoever you are, so the extra badge would only add noise.
+ *
+ * A row nothing could be worked out about shows `-`, never the process name
+ * over again. The process is already a column; repeating it here would dress
+ * "slash-port has no idea" up as an answer.
  */
 export function formatDescription(entry: PortEntry): string {
-  const parts = [entry.label];
+  const parts = [entry.label ?? ABSENT];
   if (entry.hint) parts.push(`(${entry.hint})`);
   if (entry.guard) parts.push('[protected]');
   else if (entry.elevation) parts.push('[locked]');
   return parts.join(' ');
-}
-
-/**
- * What to do about a locked row. `sudo` is the answer almost everywhere and
- * the wrong word on Windows, so the remedy is named per platform while the
- * badge stays the same in every terminal.
- */
-export function elevationRemedy(platform: NodeJS.Platform = process.platform): string {
-  return platform === 'win32' ? 'an elevated terminal' : 'sudo';
 }
 
 /** Everything a row can be matched on, lowercased once for filtering. */
@@ -54,7 +49,8 @@ export function searchText(entry: PortEntry): string {
     formatPid(entry),
     entry.user ?? '',
     entry.processName ?? '',
-    entry.label,
+    entry.label ?? '',
+    entry.category,
     entry.hint ?? '',
     entry.addresses.join(' '),
     entry.command ?? '',
@@ -102,7 +98,15 @@ export function plainTable(entries: readonly PortEntry[]): string {
   return [render(header), ...rows.map(render)].join('\n');
 }
 
-/** The `--json` shape. Stable, and a superset of what the table shows. */
+/**
+ * The `--json` shape. Stable, and a superset of what the table shows. Fields
+ * are added over time and never repurposed, so `jq` on an old field keeps
+ * working.
+ *
+ * `description` is null rather than a repeat of `process` when nothing could be
+ * identified, which is the one thing here that a reader has to know: absence is
+ * reported as absence.
+ */
 export function toJson(entries: readonly PortEntry[]): unknown {
   return entries.map((entry) => ({
     port: entry.port,
@@ -114,7 +118,14 @@ export function toJson(entries: readonly PortEntry[]): unknown {
     process: entry.processName,
     command: entry.command,
     description: entry.label,
+    descriptionSource: entry.source,
+    category: entry.category,
     project: entry.hint,
+    summary: entry.summary,
+    url: entry.url,
+    restart: entry.restart,
+    risk: entry.risk,
+    riskReason: entry.riskReason,
     protected: entry.guard !== null,
     protectedReason: entry.guard,
     locked: entry.elevation !== null,
