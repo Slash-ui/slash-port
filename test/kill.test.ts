@@ -31,6 +31,14 @@ function failing(code: string): (pid: number, signal: NodeJS.Signals | 0) => voi
   };
 }
 
+/**
+ * Windows has no signal delivery. `process.kill` maps SIGTERM onto
+ * TerminateProcess, which a process cannot catch, ignore, or clean up after,
+ * so "ignored SIGTERM and survived" is unreachable there. The tests that
+ * describe escalation are POSIX behaviour, and Windows gets its own.
+ */
+const POSIX = process.platform !== 'win32';
+
 const children: ChildProcess[] = [];
 
 /**
@@ -126,7 +134,7 @@ describe('signal escalation against real processes', () => {
     expect(probe(pid)).toBe('gone');
   });
 
-  test('a process that ignores SIGTERM is reported, not escalated', async () => {
+  test.skipIf(!POSIX)('a process that ignores SIGTERM is reported, not escalated', async () => {
     const pid = await spawnChild("process.on('SIGTERM', () => {});setInterval(() => {}, 1000)");
     const result = await killEntry(entry({ pid }), { graceMs: 300, pollMs: 25 });
 
@@ -137,7 +145,7 @@ describe('signal escalation against real processes', () => {
     expect(probe(pid)).toBe('alive');
   });
 
-  test('SIGKILL ends it once the caller asks for it', async () => {
+  test.skipIf(!POSIX)('SIGKILL ends it once the caller asks for it', async () => {
     const pid = await spawnChild("process.on('SIGTERM', () => {});setInterval(() => {}, 1000)");
     expect((await killEntry(entry({ pid }), { graceMs: 200, pollMs: 25 })).status).toBe('survived');
 
@@ -145,6 +153,16 @@ describe('signal escalation against real processes', () => {
     expect(forced.status).toBe('terminated');
     expect(forced.signal).toBe('SIGKILL');
     expect(probe(pid)).toBe('gone');
+  });
+
+  test.runIf(!POSIX)('SIGTERM cannot be caught on Windows, so it always terminates', async () => {
+    const pid = await spawnChild("process.on('SIGTERM', () => {});setInterval(() => {}, 1000)");
+    const result = await killEntry(entry({ pid }), { graceMs: 3000, pollMs: 25 });
+
+    // The handler is installed and makes no difference, which is the platform
+    // being honest rather than the guardrails failing.
+    expect(result.status).toBe('terminated');
+    expect(result.signal).toBe('SIGTERM');
   });
 
   test('sends nothing at all to a process that has already gone', async () => {
