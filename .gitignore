@@ -1,0 +1,65 @@
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+id_ecdsa*
+.npmrc
+.netrc
+.pgpass
+credentials.json
+service-account*.json
+*.credentials
+secrets.json
+.aws/
+.ssh/
+.gnupg/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+
+# Test and coverage output
+coverage/
+.nyc_output/
+*.lcov
+
+# Editors and operating systems
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Local agent and assistant configuration. 
+.claude/
+CLAUDE.md
+.cursor/
+.cursorrules
+.windsurfrules
+.aider*
+.continue/
+.github/copilot-instructions.md
+
+# Local scratch
+*.log
+tmp/
+.tmp/
+
+# Written by the release scripts when they are run by hand
+release-notes.md
