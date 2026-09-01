@@ -1,3 +1,5 @@
+import type { Mode } from '../types.js';
+
 /**
  * Only the sixteen named terminal colours are used, never hex or 256-colour
  * codes, so the UI inherits whatever palette the user has chosen instead of
@@ -131,7 +133,11 @@ export interface Layout {
   user: number;
   process: number;
   address: number;
+  /** Where to point a browser. Beginner mode only; 0 elsewhere. */
+  url: number;
   description: number;
+  /** The one-word answer to "can I close it". Beginner mode only; 0 elsewhere. */
+  risk: number;
   total: number;
 }
 
@@ -140,23 +146,44 @@ const PID_WIDTH = 7;
 const USER_WIDTH = 10;
 const PROCESS_WIDTH = 18;
 const ADDRESS_WIDTH = 17;
+const URL_WIDTH = 23; // "http://localhost:65535"
+// One width, never two. A column that widens at some terminal size has to take
+// those cells from the description, so widening the terminal by one character
+// would truncate a description that fitted a moment earlier.
+const RISK_WIDTH = 11; // "Better not", "Needs sudo"
 const MIN_DESCRIPTION = 12;
 /** What the description is worth before an optional column gets anything. */
 const TARGET_DESCRIPTION = 28;
+/**
+ * Beginner mode spends more on the description, because in that mode the
+ * description is the entire answer rather than a gloss on the process name.
+ */
+const TARGET_DESCRIPTION_BEGINNER = 30;
+/**
+ * How wide the description has to be before the verdict column is worth its
+ * cells. Introducing a column always steps the description down by that
+ * column's width; this is where that step is allowed to happen, chosen so the
+ * description left behind can still hold "Vite dev server".
+ */
+const DESCRIPTION_BEFORE_RISK = 18;
+
+const EMPTY = { pid: 0, user: 0, process: 0, address: 0, url: 0, risk: 0 };
 
 /**
  * Column widths that always add up to exactly the terminal width, including
  * the single-space gaps. Nothing may overflow: a row one character too wide
  * wraps, and a wrapped row destroys the alignment of every row below it.
  *
- * Columns are allocated by how much they carry. The port is never dropped,
- * the description is reserved next because it is the reason the tool exists,
- * and the rest compete for what is left - so an 80-column window keeps the
- * columns that matter and a 40-column one still reads.
+ * Columns are allocated by how much they carry, and what they carry depends on
+ * who is reading. Beginner mode spends the width on the answer - what this is,
+ * where to open it, whether to close it - and leaves pids and bind addresses
+ * to the panel underneath, because a person who does not know what took port
+ * 3000 does not need a bind address to find out. Advanced mode assumes the
+ * opposite and shows the lot.
  *
  * A zero width means the column is not shown at all.
  */
-export function layout(totalWidth: number): Layout {
+export function layout(totalWidth: number, mode: Mode = 'beginner'): Layout {
   const total = Math.max(24, Math.floor(totalWidth) || 80);
 
   const port = PORT_WIDTH;
@@ -171,6 +198,26 @@ export function layout(totalWidth: number): Layout {
     budget -= want + 1;
     return want;
   };
+
+  if (mode === 'beginner') {
+    // The verdict is claimed before the description is widened past a readable
+    // minimum, because it is the column the mode exists for: a forty-column
+    // window is better off with a short description and an answer than with a
+    // long description and none.
+    const floor = Math.min(DESCRIPTION_BEFORE_RISK - description, budget);
+    description += floor;
+    budget -= floor;
+
+    const risk = take(RISK_WIDTH);
+
+    const bump = Math.min(TARGET_DESCRIPTION_BEGINNER - description, budget);
+    description += bump;
+    budget -= bump;
+
+    const url = take(URL_WIDTH);
+    description += budget;
+    return { ...EMPTY, port, url, description, risk, total };
+  }
 
   const pid = take(PID_WIDTH);
   const process = take(PROCESS_WIDTH);
@@ -189,5 +236,5 @@ export function layout(totalWidth: number): Layout {
   // Whatever is left widens the description rather than being left as a gap.
   description += budget;
 
-  return { port, pid, user, process, address, description, total };
+  return { ...EMPTY, port, pid, user, process, address, description, total };
 }

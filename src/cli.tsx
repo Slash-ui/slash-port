@@ -366,6 +366,8 @@ async function main(argv: readonly string[]): Promise<number> {
       initialEntries={entries}
       initialFilter={options.port === null ? '' : options.port.text}
       udp={options.udp}
+      docker={docker}
+      mode={mode}
     />,
   );
   await instance.waitUntilExit();
