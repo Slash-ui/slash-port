@@ -128,6 +128,7 @@ function entry(overrides: Partial<PortEntry> = {}): PortEntry {
     label: 'Node.js',
     hint: null,
     guard: null,
+    elevation: null,
     ...overrides,
   };
 }
@@ -175,6 +176,26 @@ describe('list rendering', () => {
     const rows = ui.lines().filter((line) => /^\d+\/tcp/.test(line));
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.length).toBeLessThan(24);
+  });
+});
+
+describe('rows you cannot signal', () => {
+  test('a locked row is labelled as well as dimmed', async () => {
+    const locked = entry({ id: 'd', port: 5432, pid: 612, user: 'postgres', label: 'PostgreSQL', elevation: 'it belongs to postgres' });
+    const ui = renderApp(<App initialEntries={[locked]} scanner={stable} />);
+    await tick();
+
+    // Colour is never the only signal, so the badge has to be in the text.
+    expect(ui.frame()).toContain('[locked]');
+  });
+
+  test('a protected row is not also labelled locked, which would say the same thing twice', async () => {
+    const both = entry({ id: 'e', port: 22, pid: 1, processName: 'sshd', label: 'OpenSSH server', guard: 'the SSH daemon', elevation: 'it belongs to root' });
+    const ui = renderApp(<App initialEntries={[both]} scanner={stable} />);
+    await tick();
+
+    expect(ui.frame()).toContain('[protected]');
+    expect(ui.frame()).not.toContain('[locked]');
   });
 });
 
@@ -287,6 +308,18 @@ describe('killing', () => {
     expect(ui.frame()).toContain('Kill whatever holds port 3000/tcp?');
     expect(ui.frame()).toContain('Next.js');
     expect(ui.frame()).toContain('pid 100');
+  });
+
+  test('the confirmation warns when the signal is going to bounce', async () => {
+    const locked = entry({ id: 'd', port: 5432, pid: 612, user: 'postgres', label: 'PostgreSQL', elevation: 'it belongs to postgres' });
+    const ui = renderApp(<App initialEntries={[locked]} scanner={stable} />);
+    await tick();
+    await ui.press('x');
+
+    // The warning has to arrive before the decision, not after it.
+    expect(ui.frame()).toMatch(/Without (sudo|an elevated terminal) this will be refused/);
+    expect(ui.frame()).toContain('it belongs to postgres');
+    expect(ui.frame()).toContain('terminate (SIGTERM)');
   });
 
   test('cancelling signals nothing', async () => {

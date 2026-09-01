@@ -2,6 +2,7 @@ import { Box, Text, useApp, useInput, useStdout } from 'ink';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import {
+  elevationRemedy,
   formatAddresses,
   formatDescription,
   formatPid,
@@ -261,7 +262,13 @@ export function App({
 
       {window.map((entry, index) => {
         const isSelected = offset + index === selected;
-        const rowColor = entry.guard ? color('warn') : entry.pid === null ? color('muted') : undefined;
+        // Muted means "you can look at this but not touch it": either the
+        // owner is somebody else, or there is no owner to signal at all.
+        const rowColor = entry.guard
+          ? color('warn')
+          : entry.elevation || entry.pid === null
+            ? color('muted')
+            : undefined;
         const left = columnise({
           port: formatPort(entry),
           pid: formatPid(entry),
@@ -341,6 +348,11 @@ function ConfirmDialog({ entry, width }: { entry: PortEntry; width: number }): R
       </Text>
       <Text>{truncate(formatDescription(entry), inner)}</Text>
       <Text color={color('muted')}>{truncate(owner, inner)}</Text>
+      {entry.elevation && (
+        <Text color={color('warn')}>
+          {truncate(`Without ${elevationRemedy()} this will be refused: ${entry.elevation}.`, inner)}
+        </Text>
+      )}
       <Text> </Text>
       <Text>
         <Text color={color('ok')}>y</Text> terminate (SIGTERM) ·{' '}

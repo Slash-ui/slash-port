@@ -53,6 +53,13 @@ export interface PortEntry {
    * phrased for display.
    */
   guard: string | null;
+  /**
+   * Non-null when a signal is expected to bounce off this process because it
+   * belongs to somebody else. The string is the reason, phrased for display.
+   * It is an advisory and nothing else: the kill is still attempted, and the
+   * kernel still has the last word.
+   */
+  elevation: string | null;
 }
 
 export interface ScanOptions {

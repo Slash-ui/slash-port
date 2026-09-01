@@ -1,3 +1,4 @@
+import { userInfo } from 'node:os';
 import { basename } from 'node:path';
 import type { RawSocket } from './types.js';
 
@@ -311,4 +312,66 @@ export function guardReason(
   if (name && name in PROTECTED_NAMES) return PROTECTED_NAMES[name]!;
 
   return null;
+}
+
+export interface OwnerContext {
+  /** The uid slash-port is running as, or `null` on a platform without uids. */
+  uid: number | null;
+  /** The user name slash-port is running as. */
+  user: string | null;
+  platform: NodeJS.Platform;
+}
+
+function currentOwner(): OwnerContext {
+  return {
+    uid: typeof process.getuid === 'function' ? process.getuid() : null,
+    // A uid with no passwd entry - a container running as a bare number -
+    // makes this throw rather than return anything useful.
+    user: ((): string | null => {
+      try {
+        return userInfo().username;
+      } catch {
+        return null;
+      }
+    })(),
+    platform: process.platform,
+  };
+}
+
+/** Windows writes `MACHINE\amin`, and is not case sensitive about either half. */
+function sameUser(a: string, b: string, platform: NodeJS.Platform): boolean {
+  if (platform !== 'win32') return a === b;
+  const bare = (name: string): string => (name.split('\\').pop() ?? name).toLowerCase();
+  return bare(a) === bare(b);
+}
+
+/**
+ * Why a signal to this process is expected to be refused, or `null` when it
+ * should land.
+ *
+ * The scan already knows who owns every socket, so this is settled while the
+ * list is built rather than discovered after a confirmation. That is the whole
+ * point: "sudo" is worth knowing before you decide, not after. Nothing here
+ * refuses anything - `killEntry` still asks the kernel, which is the only
+ * authority on the answer.
+ */
+export function elevationReason(
+  socket: Pick<RawSocket, 'pid' | 'user'>,
+  context: OwnerContext = currentOwner(),
+): string | null {
+  // Root can signal anything.
+  if (context.uid === 0) return null;
+
+  if (socket.pid === null) {
+    // Windows reports pid 0 for the idle process rather than hiding an owner,
+    // so an unresolved pid there is not a permission wall.
+    return context.platform === 'win32' ? null : 'its owner is not visible';
+  }
+
+  if (socket.user === null || context.user === null) return null;
+  if (sameUser(socket.user, context.user, context.platform)) return null;
+  // The scanners fall back to the numeric uid when /etc/passwd has no name.
+  if (context.uid !== null && socket.user === String(context.uid)) return null;
+
+  return `it belongs to ${socket.user}`;
 }

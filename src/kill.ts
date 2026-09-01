@@ -1,4 +1,5 @@
 import { guardReason } from './describe.js';
+import { elevationRemedy } from './format.js';
 import type { PortEntry } from './types.js';
 
 export type KillStatus =
@@ -95,7 +96,7 @@ export async function killEntry(entry: PortEntry, options: KillOptions = {}): Pr
     return {
       status: 'unresolved',
       signal: null,
-      message: `Port ${entry.port} has an owner slash-port cannot see. Re-run with sudo to resolve it.`,
+      message: `Port ${entry.port} has an owner slash-port cannot see. Re-run with ${elevationRemedy()} to resolve it.`,
     };
   }
 
@@ -111,7 +112,7 @@ export async function killEntry(entry: PortEntry, options: KillOptions = {}): Pr
     return {
       status: 'denied',
       signal: null,
-      message: `${describeTarget(entry)} belongs to another user. Re-run with sudo to signal it.`,
+      message: `${describeTarget(entry)} belongs to another user. Re-run with ${elevationRemedy()} to signal it.`,
     };
   }
 
@@ -130,7 +131,7 @@ export async function killEntry(entry: PortEntry, options: KillOptions = {}): Pr
       return {
         status: 'denied',
         signal: null,
-        message: `${describeTarget(entry)} belongs to another user. Re-run with sudo to signal it.`,
+        message: `${describeTarget(entry)} belongs to another user. Re-run with ${elevationRemedy()} to signal it.`,
       };
     }
     return {

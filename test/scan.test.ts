@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
-import { describe as describeEntry, guardReason, projectHint } from '../src/describe.js';
+import { describe as describeEntry, elevationReason, guardReason, projectHint } from '../src/describe.js';
 import { parseLsof, parsePs } from '../src/scan/darwin.js';
 import { collapse } from '../src/scan/index.js';
 import { decodeAddress, parseProcNet, parseProcNetRows } from '../src/scan/linux.js';
@@ -210,6 +210,46 @@ describe('protection rules', () => {
 
   test('allows an ordinary dev server', () => {
     expect(guardReason({ pid: 4321, processName: 'node' }, { self: 5, parent: 6 })).toBeNull();
+  });
+});
+
+describe('warning that a signal will bounce', () => {
+  const me = { uid: 501, user: 'dev', platform: 'linux' as NodeJS.Platform };
+
+  test('says nothing about a process you own', () => {
+    expect(elevationReason({ pid: 100, user: 'dev' }, me)).toBeNull();
+  });
+
+  test('names the owner when it is somebody else', () => {
+    expect(elevationReason({ pid: 100, user: 'root' }, me)).toMatch(/belongs to root/);
+  });
+
+  test('treats an owner the scan could not resolve as out of reach', () => {
+    expect(elevationReason({ pid: null, user: null }, me)).toMatch(/not visible/);
+  });
+
+  test('says nothing when running as root, which can signal anything', () => {
+    expect(elevationReason({ pid: 100, user: 'postgres' }, { ...me, uid: 0, user: 'root' })).toBeNull();
+  });
+
+  // The scanners fall back to the numeric uid when /etc/passwd has no entry,
+  // which is the normal case in a container.
+  test('matches a numeric owner against your own uid', () => {
+    expect(elevationReason({ pid: 100, user: '501' }, { ...me, user: null })).toBeNull();
+  });
+
+  test('reads through the domain half of a Windows owner', () => {
+    const windows = { uid: null, user: 'Amin', platform: 'win32' as NodeJS.Platform };
+    expect(elevationReason({ pid: 100, user: 'DESKTOP-7\\amin' }, windows)).toBeNull();
+    expect(elevationReason({ pid: 100, user: 'NT AUTHORITY\\SYSTEM' }, windows)).toMatch(/SYSTEM/);
+  });
+
+  // netstat reports pid 0 for the idle process rather than hiding an owner,
+  // so there is no permission wall to warn about there.
+  test('does not read Windows pid 0 as a hidden owner', () => {
+    expect(
+      elevationReason({ pid: null, user: null }, { uid: null, user: 'Amin', platform: 'win32' }),
+    ).toBeNull();
   });
 });
 

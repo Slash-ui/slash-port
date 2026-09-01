@@ -141,6 +141,10 @@ are fixed rather than configurable:
 - **A pattern or a range never kills on its own.** `--kill --port 3xxx --yes`
   is refused without `--all`, because what a pattern matches depends on what
   happens to be running when the command is run.
+- **A signal that will bounce is flagged before you decide, not after.** A row
+  owned by somebody else is marked `[locked]`, and the confirmation says what
+  it would take to signal it - rather than letting you confirm a kill that was
+  never going to land.
 - **Some processes are refused outright**, before any dialog is offered: the
   init process, `sshd` - killing it locks you out of a remote machine - macOS
   and Windows session processes, `slash-port` itself, and the shell that
@@ -166,7 +170,8 @@ telemetry, no update check, and no configuration file.
 - Only the sixteen named terminal colours, so the display inherits your theme
   rather than fighting it.
 - Colour never carries meaning on its own - a protected row is labelled
-  `[protected]` as well as coloured.
+  `[protected]` and one you cannot signal is labelled `[locked]`, as well as
+  being coloured.
 - `NO_COLOR` and `--no-color` are honoured.
 - Redirected or piped output is plain text with no control codes, and the
   interactive interface never starts unless both streams are a terminal.

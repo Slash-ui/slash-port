@@ -18,6 +18,7 @@ function entry(overrides: Partial<PortEntry> = {}): PortEntry {
     label: 'Node.js',
     hint: null,
     guard: null,
+    elevation: null,
     ...overrides,
   };
 }
@@ -92,10 +93,11 @@ describe('guardrails', () => {
     expect(result.status).toBe('refused');
   });
 
-  test('explains an unresolved owner and suggests sudo', async () => {
+  test('explains an unresolved owner and names the way round it', async () => {
     const result = await killEntry(entry({ pid: null }));
     expect(result.status).toBe('unresolved');
-    expect(result.message).toMatch(/sudo/);
+    // `sudo` everywhere but Windows, where it is an elevated terminal.
+    expect(result.message).toMatch(/sudo|elevated terminal/);
   });
 
   test('reports a process that had already exited without signalling it', async () => {
