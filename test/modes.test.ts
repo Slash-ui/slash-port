@@ -299,9 +299,16 @@ describe('naming the container behind a port', () => {
   });
 
   test('the sockets Colima and Rancher use are looked for too', () => {
+    // Asked about darwin, and answered the same way on every host: `join`
+    // follows the separator of the machine running the code, so a Windows CI
+    // leg would otherwise be offered \home\dev\.colima and find nothing.
     const candidates = socketCandidates({}, 'darwin', '/home/dev');
-    expect(candidates).toContain('/var/run/docker.sock');
-    expect(candidates).toContain('/home/dev/.colima/default/docker.sock');
+    expect(candidates).toEqual([
+      '/var/run/docker.sock',
+      '/home/dev/.docker/run/docker.sock',
+      '/home/dev/.colima/default/docker.sock',
+      '/home/dev/.rd/docker.sock',
+    ]);
   });
 });
 

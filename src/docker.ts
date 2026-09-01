@@ -1,7 +1,7 @@
 import { request } from 'node:http';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { posix } from 'node:path';
 import { browserUrl, matchSignatureEntry, redundantHint } from './describe.js';
 import type { PortEntry } from './types.js';
 
@@ -42,11 +42,15 @@ export function socketCandidates(
   if (host) return [];
 
   if (platform === 'win32') return ['\\\\.\\pipe\\docker_engine'];
+  // Joined as posix paths rather than with `join`, which follows the host
+  // separator. These four are unix sockets whatever machine is asking about
+  // them, and the win32 branch above has already taken the one platform where
+  // a backslash would have been right.
   return [
     '/var/run/docker.sock',
-    join(home, '.docker/run/docker.sock'),
-    join(home, '.colima/default/docker.sock'),
-    join(home, '.rd/docker.sock'),
+    posix.join(home, '.docker/run/docker.sock'),
+    posix.join(home, '.colima/default/docker.sock'),
+    posix.join(home, '.rd/docker.sock'),
   ];
 }
 
